@@ -374,8 +374,8 @@ class QEqForceModule(BaseForceModule):
         pairs: torch.Tensor,
         ds: torch.Tensor,
         buffer_scales: torch.Tensor,
-        constraint_matrix: torch.Tensor,
-        constraint_vals: torch.Tensor,
+        constraint_matrix: Optional[torch.Tensor],
+        constraint_vals: Optional[torch.Tensor],
         check_hessian: bool = False,
     ):
         """Solve QEq with matrix inversion method
@@ -421,17 +421,25 @@ class QEqForceModule(BaseForceModule):
         # coeff matrix as [[hessian, constraint_matrix.T], [constraint_matrix, 0]]
         # (n_atoms + n_const) * (n_atoms + n_const)
         n_atoms = positions.shape[0]
-        n_const = constraint_matrix.shape[0]
-        coeff_matrix = torch.cat(
-            [
-                torch.cat([hessian, constraint_matrix.T], dim=1),
-                torch.cat([constraint_matrix, torch.zeros(n_const, n_const)], dim=1),
-            ],
-            dim=0,
-        )
+        if constraint_matrix is None:
+            coeff_matrix = hessian
+            vector = -chi
+        else:
+            n_const = constraint_matrix.shape[0]
+            coeff_matrix = torch.cat(
+                [
+                    torch.cat([hessian, constraint_matrix.T], dim=1),
+                    torch.cat(
+                        [constraint_matrix, torch.zeros(n_const, n_const)], dim=1
+                    ),
+                ],
+                dim=0,
+            )
+            vector = torch.concat([-chi, constraint_vals])
+
         if check_hessian:
             print(torch.all(torch.diag(hessian) > 0.0))
-        vector = torch.concat([-chi, constraint_vals])
+
         _q_opt = torch.linalg.solve(coeff_matrix, vector.reshape(-1, 1)).reshape(-1)
 
         q_opt = _q_opt[:n_atoms].detach()
