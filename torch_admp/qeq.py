@@ -62,29 +62,13 @@ class GaussianDampingForceModule(BaseForceModule):
         energy: torch.Tensor
             energy tensor
         """
-
-        eta = params["eta"] * self.const_lib.length_coeff
-        charges = params["charge"]
-
-        ds = ds * self.const_lib.length_coeff
-
-        q_i = charges[pairs[:, 0]].reshape(-1)
-        q_j = charges[pairs[:, 1]].reshape(-1)
-
-        eta_ij = torch.sqrt((eta[pairs[:, 0]] ** 2 + eta[pairs[:, 1]] ** 2) * 2)
-        # avoid nan when calculating grad if eta_ij is zero
-        eta_ij = torch.where(eta_ij == 0, 1e-10, eta_ij)
-        pre_pair = -torch.erfc(ds / eta_ij)
-        e_sr_pair = torch.sum(
-            pre_pair * q_i * q_j * safe_inverse(ds, threshold=1e-4) * buffer_scales
+        return self.forward_lower(
+            charges=params["charge"],
+            eta=params["eta"],
+            pairs=pairs,
+            ds=ds,
+            buffer_scales=buffer_scales,
         )
-
-        pre_self = safe_inverse(eta, threshold=1e-4) / (2 * self.const_lib.sqrt_pi)
-        e_sr_self = torch.sum(pre_self * charges * charges)
-
-        e_sr = (e_sr_pair + e_sr_self) * self.const_lib.dielectric
-        # eV to user-defined energy unit
-        return e_sr / self.const_lib.energy_coeff
 
     def forward_lower(
         self,
@@ -94,13 +78,16 @@ class GaussianDampingForceModule(BaseForceModule):
         ds: torch.Tensor,
         buffer_scales: torch.Tensor,
     ) -> torch.Tensor:
+        eta = eta * self.const_lib.length_coeff
         ds = ds * self.const_lib.length_coeff
 
         q_i = charges[pairs[:, 0]].reshape(-1)
         q_j = charges[pairs[:, 1]].reshape(-1)
 
         eta_ij = torch.sqrt((eta[pairs[:, 0]] ** 2 + eta[pairs[:, 1]] ** 2) * 2)
-        pre_pair = -self.eta_piecewise(eta_ij, ds)
+        # avoid nan when calculating grad if eta_ij is zero
+        eta_ij = torch.where(eta_ij == 0, 1e-10, eta_ij)
+        pre_pair = -torch.erfc(ds / eta_ij)
         e_sr_pair = torch.sum(
             pre_pair * q_i * q_j * safe_inverse(ds, threshold=1e-4) * buffer_scales
         )
@@ -155,10 +142,16 @@ class SiteForceModule(BaseForceModule):
         energy: torch.Tensor
             energy tensor
         """
-        chi = params["chi"] * self.const_lib.energy_coeff
-        hardness = params["hardness"] * self.const_lib.energy_coeff
-        charges = params["charge"]
+        return self.forward_lower(params["chi"], params["hardness"], params["charge"])
 
+    def forward_lower(
+        self,
+        chi: torch.Tensor,
+        hardness: torch.Tensor,
+        charges: torch.Tensor,
+    ):
+        chi = chi * self.const_lib.energy_coeff
+        hardness = hardness * self.const_lib.energy_coeff
         e = chi * charges + hardness * charges**2
         return torch.sum(e) / self.const_lib.energy_coeff
 
@@ -237,6 +230,9 @@ class QEqForceModule(BaseForceModule):
         self.eps = eps
         self.converge_iter: int = -1
         self.sel = sel
+
+        self.slab_axis = slab_axis
+        self.slab_corr = slab_corr
 
     def get_rcut(self) -> float:
         return self.rcut
