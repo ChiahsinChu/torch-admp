@@ -72,7 +72,9 @@ class GaussianDampingForceModule(BaseForceModule):
         q_j = charges[pairs[:, 1]].reshape(-1)
 
         eta_ij = torch.sqrt((eta[pairs[:, 0]] ** 2 + eta[pairs[:, 1]] ** 2) * 2)
-        pre_pair = -self.eta_piecewise(eta_ij, ds)
+        # avoid nan when calculating grad if eta_ij is zero
+        eta_ij = torch.where(eta_ij == 0, 1e-10, eta_ij)
+        pre_pair = -torch.erfc(ds / eta_ij)
         e_sr_pair = torch.sum(
             pre_pair * q_i * q_j * safe_inverse(ds, threshold=1e-4) * buffer_scales
         )
@@ -83,10 +85,6 @@ class GaussianDampingForceModule(BaseForceModule):
         e_sr = (e_sr_pair + e_sr_self) * self.const_lib.dielectric
         # eV to user-defined energy unit
         return e_sr / self.const_lib.energy_coeff
-
-    @staticmethod
-    def eta_piecewise(eta, ds, threshold: float = 1e-4):
-        return torch.where(eta > threshold, torch.erfc(ds / eta), torch.zeros_like(eta))
 
     def forward_lower(
         self,
