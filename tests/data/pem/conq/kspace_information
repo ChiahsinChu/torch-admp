@@ -1,0 +1,9 @@
+PPPM/electrode initialization ...
+  using 12-bit tables for long-range coulomb (src/kspace.cpp:342)
+  G vector (1/distance) = 0.45131303
+  grid = 16 16 32
+  stencil order = 5
+  estimated absolute RMS force accuracy = 0.016771921
+  estimated relative force accuracy = 5.0508141e-05
+  using double precision FFTW3
+  3d grid and FFT values/proc = 2475 256

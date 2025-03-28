@@ -11,9 +11,9 @@ from torch_admp.qeq import QEqForceModule
 from torch_admp.utils import calc_grads, to_numpy_array
 
 
-class TestSlabFField(unittest.TestCase):
+class TestSlab3D(unittest.TestCase):
     def setUp(self):
-        atoms = io.read(Path(__file__).parent / "data/lmp_conp_slab/dump.lammpstrj")
+        atoms = io.read(Path(__file__).parent / "data/lmp_conp_slab_3d/dump.lammpstrj")
         self.ref_charges = atoms.get_initial_charges()
         self.ref_forces = atoms.get_forces()
 
@@ -84,3 +84,53 @@ class TestSlabFField(unittest.TestCase):
                 atol=1e-4,
             )
         )
+
+
+# class TestSlab2D(unittest.TestCase):
+#     def setUp(self):
+#         pass
+
+
+# class TestInterface3D(unittest.TestCase):
+#     def setUp(self):
+#         pass
+
+
+# class TestInterface2D(unittest.TestCase):
+#     def setUp(self):
+#         pass
+
+
+# class TestLAMMPSRefData(unittest.TestCase):
+#     def setUp(self) -> None:
+#         self.fnames_2d = glob.glob(
+#             str(Path(__file__).parent / "data/lmp_con*_2d*/dump.lammpstrj")
+#         )
+#         self.fnames_2d.sort()
+#         self.fnames_3d = glob.glob(
+#             str(Path(__file__).parent / "data/lmp_con*_3d*/dump.lammpstrj")
+#         )
+#         self.fnames_3d.sort()
+
+#     def test(self):
+#         for fname_2d, fname_3d in zip(self.fnames_2d, self.fnames_3d):
+#             atoms_2d = io.read(fname_2d)
+#             atoms_3d = io.read(fname_3d)
+
+#             charges_2d = atoms_2d.get_initial_charges()
+#             charges_3d = atoms_3d.get_initial_charges()
+#             diff = charges_2d - charges_3d
+#             # rmse
+#             rmse = np.sqrt(np.mean(diff ** 2))
+#             print(fname_2d, rmse, np.abs(diff).max())
+#             # self.assertTrue(np.allclose(charges_2d, charges_3d, atol=1e-4))
+#             forces_2d = atoms_2d.get_forces()
+#             forces_3d = atoms_3d.get_forces()
+#             diff = forces_2d - forces_3d
+#             # rmse
+#             rmse = np.sqrt(np.mean(diff ** 2))
+#             print(fname_2d, rmse, np.abs(diff).max())
+
+
+if __name__ == "__main__":
+    unittest.main()

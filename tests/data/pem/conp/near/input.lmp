@@ -1,0 +1,53 @@
+variable        DT              equal 200
+variable        ETA             equal 1.6
+
+# ----------------- Init Section -----------------
+
+units           real
+boundary        p p p
+atom_style      full
+
+pair_style      coul/long 6.0 
+kspace_style    pppm/electrode 1.0e-8
+#kspace_modify gewald 0.6
+#kspace_modify mesh 100 100 100
+# ----------------- Atom Definition Section -----------------
+
+read_data       system.data
+restart         100000 system.restart
+
+# ----------------- Force Field Section -----------------
+
+pair_coeff      * *
+
+mass            1 195.084
+mass            2 39.0983
+mass            3 18.998403
+#mass            4 1.008
+
+#----------------- Def groups and variables -----------------
+
+group           top id 1:108
+group           bottom id 109:216
+
+# ----------------- Normal setting -----------------
+neighbor        2.0 bin
+neigh_modify    every 10 delay 0 check no
+log             conp.log
+
+fix             fconp bottom electrode/conp 0.0 ${ETA} couple top ${DT} symm on ffield on
+
+variable        dv equal -v_fconp_ffield_zfield*(zhi-zlo)
+
+thermo          1
+thermo_style    custom step ke pe etotal temp v_fconp_ffield_zfield v_dv
+
+variable        pe equal pe
+fix             log all print 1 "${pe} ${dv}" file conp.dat screen no title "# energy dv"
+
+dump            traj all custom 1 conp.lammpstrj id element xu yu zu fx fy fz q
+dump_modify     traj element Pt K F  sort id
+#compute 1 all efield/atom
+
+run             0
+write_data after_pem.data

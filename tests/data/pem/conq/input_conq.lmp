@@ -1,0 +1,118 @@
+########### Xiaohui-syhan ELETRODE input template ############
+#
+# ------------ Global defined in system -----------------
+variable q_bin_width equal 0.2
+variable Nevery equal 10
+variable Nrepeat equal 100
+variable Nfreq equal 1000
+variable set_temp equal 400 #K
+variable ele_charge equal -5
+
+# ----------------- Init Section -----------------
+
+include "system.in.init"
+
+# ----------------- Atom Definition Section -----------------
+read_data system.data
+#read_data system.data nocoeff  
+#read_restart "system.restart.700000" remap
+restart 100000 system.restart
+
+# ----------------- Settings Section -----------------
+
+include "system.in.settings"
+include "system.in.add"
+
+#variable slab_reset equal zlo-v_z_slabr
+#variable slab_thickness equal -3.4*3/2
+#displace_atoms all move 0 0 v_slab_reset
+#displace_atoms all move 0 0 v_slab_thickness
+#change_box all x final 0 $(lx) y final 0 $(ly) z final 0 $(lz) boundary p p p remap units box
+
+#### Initial velocity set
+#velocity rest create ${set_temp} 12345
+velocity slab set 0 0 0
+#fix fx_slab slab setforce 0 0 0
+
+#### Control potential difference between electrodes:
+#variable v_DV equal 5.0
+#variable v_zfield equal ${v_DV}/(zlo-zhi)
+#fix efield all efield 0.0 0.0 ${v_zfield}
+fix conq1 slabl electrode/conq v_ele_charge 1.6  couple slabr v_ele_charge
+
+#### Control the piston in simulation (method to reproduce NPT in 2d simulation):
+#fix fxRIGl slab rigid single force 1 off off on torque 1 off off off reinit no
+#unfix fx_slab
+# use "on" and "off" to control the volume of electrolytes
+fix fxRIGl slab rigid single force 1 off off off torque 1 off off off reinit no
+
+
+
+
+#### Rescale of velocity
+#velocity rest create ${set_temp} 123456
+#velocity rest scale ${set_temp}
+
+#### Avoid the drift of electrolytes during simulation:
+#fix f_nodrift rest momentum 1 linear 1 1 0 rescale
+
+#### WAT molecules SHAKE
+fix FSHAKE rest shake 0.0001 20 1000 m 1.008
+
+# ----------------- Run Section -----------------
+
+##### energy minimization---- initial structure, reform from system.data:(remove all fixes at first)
+#change_box all z final $(-lz/2) $(lz/2) remap units box
+#minimize 1.0e-5 1.0e-6 10000 10000
+#fix fbox all box/relax z 1.0 dilate rest
+
+##### 1. Nose-Hoover simulation:
+#fix fnvt1 rest nvt temp 300 300 100
+#fix_modify fnvt1 temp Crest
+
+#### 1.5 NPT simulation:
+#fix fxRIG slab rigid single force 1 off off on torque 1 off off off reinit no
+#fix fnpts rest npt temp ${set_temp} ${set_temp} 100 z 1 1 500 dilate rest
+#fix_modify fnpts temp Crest
+
+##### 2. langevin simulation:
+#fix flgv2 rest langevin ${set_temp} ${set_temp} 100 567000
+#fix_modify flgv2 temp Crest
+#fix nve2 rest nve
+
+##### 3. global velocity rescaling + Nose-Hoover simulation:
+fix fcsvr3 rest temp/csvr ${set_temp} ${set_temp} 100 567000
+fix_modify fcsvr3 temp Crest
+fix nve3 rest nve
+
+##### 4. global velocity rescaling + langevin simulation:
+#fix fcsld4 rest temp/csld ${set_temp} ${set_temp} 100 567000
+#fix_modify fcsld4 temp Crest
+#fix nve4 rest nve
+
+#### keep slabs position:
+#fix cells all recenter NULL NULL $(lz/2) shift all units box
+#fix FSHAKE rest rattle 0.0001 20 1000 m 1.008
+
+#------------------time steps ------------------
+timestep 1
+#run 10000 # fix 12  
+#
+#timestep 3.0
+#run_style respa 3 2 3 bond 1 dihedral 2 pair 2 kspace 3
+
+
+run 0
+
+variable set_temp equal 330
+fix fcsvr3 rest temp/csvr ${set_temp} ${set_temp} 100 567000
+fix_modify fcsvr3 temp Crest
+fix nve3 rest nve
+#run 1000000
+
+
+
+#------------------write new data file ------------------
+write_data after_pem.data nocoeff  
+ 
+
