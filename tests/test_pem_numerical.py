@@ -289,11 +289,8 @@ class TestPEMModule(unittest.TestCase):
 
         # Create module and run simulation
         module = self._create_pem_module()
-        params = self._get_params_dict()
-
-        module.ffield_flag = True
-        module.efield = -(potential[0] - potential[1]) / self.box[2, 2]
-        self.efield = module.efield
+        self.efield = torch.zeros(3)
+        self.efield[2] = -(potential[0] - potential[1]) / self.box[2, 2]
         forces_ref_charge = self._calculate_forces(module)
 
         # Run constant potential simulation
@@ -402,7 +399,7 @@ class TestPEMModule(unittest.TestCase):
 
         charge_constraint_dict = {1: torch.tensor(-5.0), 2: torch.tensor(-5.0)}
 
-        self.efield = 0
+        self.efield = None
         forces_ref_charge = self._calculate_forces(module)
 
         charges = conq(
@@ -461,7 +458,7 @@ class TestPEMModule(unittest.TestCase):
         electrode_mask = torch.zeros(self.n_atoms)
         electrode_mask[:108] = 1
         electrode_mask[108:216] = 1
-        self.efield = 0
+        self.efield = None
 
         forces_ref_charge = self._calculate_forces(module)
 
@@ -544,8 +541,8 @@ class TestPEMModule(unittest.TestCase):
         electrode_mask[:108] = 201
         electrode_mask[108:216] = 1
         potential = [201, 1]
-        module.efield = -(potential[0] - potential[1]) / self.box[2, 2]
-        self.efield = module.efield
+        self.efield = torch.zeros(3)
+        self.efield[2] = -(potential[0] - potential[1]) / self.box[2, 2]
 
         forces_ref_charge = self._calculate_forces(module)
 

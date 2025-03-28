@@ -97,64 +97,6 @@ class PolarisableElectrode(QEqForceModule):
         return chi + elec_potential
 
     @torch.jit.export
-    def finite_field_add_chi(
-        self,
-        positions: torch.Tensor,
-        box: torch.Tensor,
-        electrode_mask: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Compute the correction term for the finite field
-
-        potential  need to be same in the electrode_mask
-        potential drop is potential[0] - potential[1]
-        """
-
-        potential = torch.tensor([0.0, 0.0])
-        electrode_mask_mid_1 = electrode_mask[electrode_mask != 0]
-        if len(electrode_mask_mid_1) == 0:
-            raise ValueError("No nonzero electrode values found in electrode_mask.")
-        potential[0] = electrode_mask_mid_1[0]
-        electrode_mask_mid_2 = electrode_mask_mid_1[
-            electrode_mask_mid_1 != electrode_mask_mid_1[0]
-        ]
-        if len(electrode_mask_mid_2) == 0:
-            potential[1] = electrode_mask_mid_1[0]
-        else:
-            potential[1] = electrode_mask_mid_2[0]
-
-        if not torch.all(electrode_mask_mid_2 == electrode_mask_mid_2[0]):
-            raise KeyError("Only two electrodes are supported now")
-
-        slab_axis = self.slab_axis
-
-        first_electrode = torch.zeros_like(electrode_mask)
-        second_electrode = torch.zeros_like(electrode_mask)
-
-        first_electrode[electrode_mask == potential[0]] = 1
-        second_electrode[electrode_mask == potential[1]] = 1
-        potential_drop = potential[0] - potential[1]
-
-        ## find max position in slab_axis for left electrode
-        max_pos_first = torch.max(positions[first_electrode == 1, slab_axis])
-        max_pos_second = torch.max(positions[second_electrode == 1, slab_axis])
-        # only valid for orthogonality cell
-        lz = box[slab_axis][slab_axis]
-        normalized_positions = positions[:, slab_axis] / lz
-        ### lammps fix electrode implementation
-        ### cos180(-1) or cos0(1) for E(delta_psi/(r1-r2)) and r
-        if max_pos_first > max_pos_second:
-            zprd_offset = -1 * -1 * normalized_positions
-            efield = -1 * potential_drop / lz
-        else:
-            zprd_offset = -1 * normalized_positions
-            efield = potential_drop / lz
-
-        potential = potential_drop * zprd_offset
-        mask = (second_electrode == 1) | (first_electrode == 1)
-        return potential[mask], efield
-
-    @torch.jit.export
     def coulomb_calculator(
         self,
         positions: torch.Tensor,
@@ -164,7 +106,7 @@ class PolarisableElectrode(QEqForceModule):
         pairs: torch.Tensor,
         ds: torch.Tensor,
         buffer_scales: torch.Tensor,
-        efield: torch.Tensor = None,
+        efield: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Compute the Coulomb force for the system
@@ -184,13 +126,13 @@ class PolarisableElectrode(QEqForceModule):
         )
         forces = -calc_grads(energy, positions)
 
-        vector = torch.tensor([0, 0, 0])
-        vector[self.slab_axis] = 1
-
         if efield is not None:
-            forces += efield * charges.unsqueeze(1) * vector
-            energy += torch.sum(efield * charges * positions[:, self.slab_axis])
-
+            _efield = torch.zeros(3)
+            _efield[self.slab_axis] = efield[self.slab_axis]
+            forces = forces + charges.unsqueeze(1) * _efield
+            energy = energy + torch.sum(
+                _efield.reshape(1, 3) * charges.unsqueeze(1) * positions
+            )
         return energy, forces
 
 
@@ -241,17 +183,18 @@ def _conp(
         ds,
         buffer_scales,
     )
-    electrode_params["chi"] = chi[electrode_mask != 0]
-
     ##Apply the constant potential condition
-    electrode_params["chi"] -= electrode_mask[electrode_mask != 0]
-
+    electrode_params["chi"] = (
+        chi[electrode_mask != 0] - electrode_mask[electrode_mask != 0]
+    )
     ##Apply the finite field condition
     if ffield:
         if module.slab_corr:
             raise KeyError("Slab correction and finite field cannot be used together")
-        potential, efield = module.finite_field_add_chi(positions, box, electrode_mask)
-        electrode_params["chi"] += potential
+        potential, _efield = finite_field_add_chi(
+            positions, box, electrode_mask, module.slab_axis
+        )
+        electrode_params["chi"] = electrode_params["chi"] + potential
         module.ffield_flag = True
 
     # Neighbor list calculations
@@ -498,6 +441,63 @@ def conq_aimd_data(
     )
 
 
+@torch.jit.export
+def finite_field_add_chi(
+    positions: torch.Tensor,
+    box: torch.Tensor,
+    electrode_mask: torch.Tensor,
+    slab_axis: int = 2,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """
+    Compute the correction term for the finite field
+
+    potential  need to be same in the electrode_mask
+    potential drop is potential[0] - potential[1]
+    """
+
+    potential = torch.tensor([0.0, 0.0])
+    electrode_mask_mid_1 = electrode_mask[electrode_mask != 0]
+    if len(electrode_mask_mid_1) == 0:
+        raise ValueError("No nonzero electrode values found in electrode_mask.")
+    potential[0] = electrode_mask_mid_1[0]
+    electrode_mask_mid_2 = electrode_mask_mid_1[
+        electrode_mask_mid_1 != electrode_mask_mid_1[0]
+    ]
+    if len(electrode_mask_mid_2) == 0:
+        potential[1] = electrode_mask_mid_1[0]
+    else:
+        potential[1] = electrode_mask_mid_2[0]
+
+    if not torch.all(electrode_mask_mid_2 == electrode_mask_mid_2[0]):
+        raise KeyError("Only two electrodes are supported now")
+
+    first_electrode = torch.zeros_like(electrode_mask)
+    second_electrode = torch.zeros_like(electrode_mask)
+
+    first_electrode[electrode_mask == potential[0]] = 1
+    second_electrode[electrode_mask == potential[1]] = 1
+    potential_drop = potential[0] - potential[1]
+
+    ## find max position in slab_axis for left electrode
+    max_pos_first = torch.max(positions[first_electrode == 1, slab_axis])
+    max_pos_second = torch.max(positions[second_electrode == 1, slab_axis])
+    # only valid for orthogonality cell
+    lz = box[slab_axis][slab_axis]
+    normalized_positions = positions[:, slab_axis] / lz
+    ### lammps fix electrode implementation
+    ### cos180(-1) or cos0(1) for E(delta_psi/(r1-r2)) and r
+    if max_pos_first > max_pos_second:
+        zprd_offset = -1 * -1 * normalized_positions
+        efield = -1 * potential_drop / lz
+    else:
+        zprd_offset = -1 * normalized_positions
+        efield = potential_drop / lz
+
+    potential = potential_drop * zprd_offset
+    mask = (second_electrode == 1) | (first_electrode == 1)
+    return potential[mask], efield
+
+
 class BackupPolarisableElectrode(QEqForceModule):
     """Polarisable electrode model
 
@@ -631,6 +631,7 @@ class LAMMPSElectrodeConstraint:
         value: float,
         eta: float,
         chi: float = 0.0,
+        ffield: bool = False,
     ) -> None:
         self.indices = np.array(indices, dtype=int)
         # assert one dimension array
@@ -642,6 +643,7 @@ class LAMMPSElectrodeConstraint:
         self.value = value
         self.eta = eta
         self.chi = chi
+        self.ffield = ffield
 
 
 def setup_from_lammps(
@@ -654,6 +656,8 @@ def setup_from_lammps(
     eta = np.zeros(n_atoms)
     constraint_matrix = []
     constraint_vals = []
+    ffield_electrode_mask = []
+    ffield_potential = []
 
     for constraint in constraint_list:
         mask[constraint.indices] = True
@@ -663,20 +667,94 @@ def setup_from_lammps(
             constraint_matrix.append(np.zeros((1, n_atoms)))
             constraint_matrix[-1][0, constraint.indices] = 1.0
             constraint_vals.append(constraint.value)
+        if constraint.ffield:
+            ffield_electrode_mask.append(np.zeros((1, n_atoms)))
+            ffield_electrode_mask[-1][0, constraint.indices] = 1.0
+            ffield_potential.append(constraint.value)
+
+    if len(ffield_electrode_mask) == 0:
+        ffield_electrode_mask = None
+        ffield_potential = None
+    elif len(ffield_electrode_mask) == 2:
+        ffield_electrode_mask = torch.tensor(
+            np.concatenate(ffield_electrode_mask, axis=0), dtype=bool
+        )
+        ffield_potential = torch.tensor(np.array(ffield_potential))
+        # if using ffield, electroneutrality should be enforced
+        # symm = True
+    else:
+        raise AttributeError("number of ffield group should be 0 or 2")
 
     if symm:
         constraint_matrix.append(np.ones((1, n_atoms)))
         constraint_vals.append(0.0)
 
     if len(constraint_matrix) > 0:
-        constraint_matrix = np.concatenate(constraint_matrix, axis=0)[:, mask]
-        constraint_vals = np.array(constraint_vals)
-        return (
-            torch.tensor(mask),
-            torch.tensor(chi),
-            torch.tensor(eta),
-            torch.tensor(constraint_matrix),
-            torch.tensor(constraint_vals),
+        constraint_matrix = torch.tensor(
+            np.concatenate(constraint_matrix, axis=0)[:, mask]
         )
+        constraint_vals = torch.tensor(np.array(constraint_vals))
     else:
-        return torch.tensor(mask), torch.tensor(chi), torch.tensor(eta), None, None
+        constraint_matrix = None
+        constraint_vals = None
+
+    return (
+        torch.tensor(mask),
+        torch.tensor(chi),
+        torch.tensor(eta),
+        constraint_matrix,
+        constraint_vals,
+        ffield_electrode_mask,
+        ffield_potential,
+    )
+
+
+@torch.jit.script
+def finite_field_add_chi_new(
+    positions: torch.Tensor,
+    box: torch.Tensor,
+    ffield_electrode_mask: torch.Tensor,
+    ffield_potential: torch.Tensor,
+    slab_axis: int = 2,
+):
+    """
+    Compute the correction term for the finite field
+
+    potential  need to be same in the electrode_mask
+    potential drop is potential[0] - potential[1]
+    """
+    assert positions.dim() == 2
+    assert box.dim() == 2
+    assert ffield_potential.dim() == 1
+    assert ffield_electrode_mask.dim() == 2
+
+    assert ffield_electrode_mask.shape[0] == 2
+    assert positions.shape[1] == 3
+
+    n_atoms = positions.shape[0]
+    assert ffield_electrode_mask.shape[1] == n_atoms
+    assert ffield_potential.shape[0] == 2
+
+    first_electrode_mask = ffield_electrode_mask[0]
+    second_electrode_mask = ffield_electrode_mask[1]
+
+    potential_drop = ffield_potential[0] - ffield_potential[1]
+
+    ## find max position in slab_axis for left electrode
+    max_pos_first = torch.max(positions[first_electrode_mask, slab_axis])
+    max_pos_second = torch.max(positions[second_electrode_mask, slab_axis])
+    # only valid for orthogonality cell
+    lz = box[slab_axis][slab_axis]
+    normalized_positions = positions[:, slab_axis] / lz
+    ### lammps fix electrode implementation
+    ### cos180(-1) or cos0(1) for E(delta_psi/(r1-r2)) and r
+    if max_pos_first > max_pos_second:
+        zprd_offset = -1 * -1 * normalized_positions
+        efield = -1 * potential_drop / lz
+    else:
+        zprd_offset = -1 * normalized_positions
+        efield = potential_drop / lz
+
+    potential = potential_drop * zprd_offset
+    mask = first_electrode_mask | second_electrode_mask
+    return potential[mask], efield
