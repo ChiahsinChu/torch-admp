@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
-import copy
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -46,40 +45,9 @@ class PolarisableElectrode(QEqForceModule):
     @torch.jit.export
     def calc_coulomb_potential(
         self,
-        positions: torch.Tensor,
-        box: torch.Tensor,
-        charges: torch.Tensor,
-        eta: torch.Tensor,
-        pairs: torch.Tensor,
-        ds: torch.Tensor,
-        buffer_scales: torch.Tensor,
-    ) -> torch.Tensor:
-        """
-        calculate the coulomb potential for the system
-        """
-        energy = self.forward(
-            positions,
-            box,
-            pairs,
-            ds,
-            buffer_scales,
-            {
-                "charge": charges,
-                "eta": eta,
-                "hardness": torch.zeros_like(eta),
-                "chi": torch.zeros_like(eta),
-            },
-        )
-        elec_potential = calc_grads(energy, charges)
-        return elec_potential
-
-    @torch.jit.export
-    def coulomb_potential_add_chi(
-        self,
         electrode_mask: torch.Tensor,
         positions: torch.Tensor,
         box: torch.Tensor,
-        chi: torch.Tensor,
         eta: torch.Tensor,
         charges: torch.Tensor,
         pairs: torch.Tensor,
@@ -91,10 +59,21 @@ class PolarisableElectrode(QEqForceModule):
         """
         modified_charges = torch.where(electrode_mask == 0, charges, 0.0)
         modified_charges.requires_grad_(True)
-        elec_potential = self.calc_coulomb_potential(
-            positions, box, modified_charges, eta, pairs, ds, buffer_scales
+        energy = self.forward(
+            positions,
+            box,
+            pairs,
+            ds,
+            buffer_scales,
+            {
+                "charge": modified_charges,
+                "eta": eta,
+                "hardness": torch.zeros_like(eta),
+                "chi": torch.zeros_like(eta),
+            },
         )
-        return chi + elec_potential
+        elec_potential = calc_grads(energy, modified_charges)
+        return elec_potential
 
     @torch.jit.export
     def coulomb_calculator(
@@ -172,17 +151,17 @@ def _conp(
     ds = nblist.get_ds()
     buffer_scales = nblist.get_buffer_scales()
 
-    chi = module.coulomb_potential_add_chi(
+    chi_elec = module.calc_coulomb_potential(
         electrode_mask,
         positions,
         box,
-        params["chi"],
         params["eta"],
         params["charge"],
         pairs,
         ds,
         buffer_scales,
     )
+    chi = params["chi"] + chi_elec
     ##Apply the constant potential condition
     electrode_params["chi"] = (
         chi[electrode_mask != 0] - electrode_mask[electrode_mask != 0]
@@ -304,17 +283,18 @@ def _conq(
     ds = nblist.get_ds()
     buffer_scales = nblist.get_buffer_scales()
 
-    chi = module.coulomb_potential_add_chi(
+    chi_elec = module.calc_coulomb_potential(
         electrode_mask,
         positions,
         box,
-        params["chi"],
         params["eta"],
         params["charge"],
         pairs,
         ds,
         buffer_scales,
     )
+    chi = params["chi"] + chi_elec
+
     electrode_params["chi"] = chi[electrode_mask != 0]
 
     ##Apply the finite field condition
@@ -441,7 +421,7 @@ def conq_aimd_data(
     )
 
 
-@torch.jit.export
+@torch.jit.script
 def finite_field_add_chi(
     positions: torch.Tensor,
     box: torch.Tensor,
@@ -454,7 +434,6 @@ def finite_field_add_chi(
     potential  need to be same in the electrode_mask
     potential drop is potential[0] - potential[1]
     """
-
     potential = torch.tensor([0.0, 0.0])
     electrode_mask_mid_1 = electrode_mask[electrode_mask != 0]
     if len(electrode_mask_mid_1) == 0:
@@ -495,135 +474,33 @@ def finite_field_add_chi(
 
     potential = potential_drop * zprd_offset
     mask = (second_electrode == 1) | (first_electrode == 1)
-return potential[mask], efield
-
-
-class BackupPolarisableElectrode(QEqForceModule):
-    """Polarisable electrode model
-
-    Parameters
-    ----------
-    rcut : float
-        cutoff radius for short-range interactions
-    ethresh : float, optional
-        energy threshold for electrostatic interaction, by default 1e-5
-    kspace: bool
-        whether the reciprocal part is included
-    rspace: bool
-        whether the real space part is included
-    slab_corr: bool
-        whether the slab correction is applied
-    slab_axis: int
-        axis at which the slab correction is applied
-    max_iter: int, optional
-        maximum number of iterations for optimization, by default 20
-        only used for projected gradient method
-    ls_eps: float, optional
-        threshold for line search, by default 1e-4
-        only used for projected gradient method
-    eps: float, optional
-        threshold for convergence, by default 1e-4
-        only used for projected gradient method
-    units_dict: Dict, optional
-        dictionary of units, by default None
-    """
-
-    def __init__(
-        self,
-        rcut: float,
-        ethresh: float = 1e-5,
-        **kwargs,
-    ) -> None:
-        super().__init__(
-            rcut=rcut,
-            ethresh=ethresh,
-            **kwargs,
-        )
-
-    def forward(
-        self,
-        positions: torch.Tensor,
-        box: Optional[torch.Tensor],
-        pairs: torch.Tensor,
-        ds: torch.Tensor,
-        buffer_scales: torch.Tensor,
-        params: Dict[str, torch.Tensor],
-    ) -> torch.Tensor:
-        """Charge equilibrium (QEq) model
-
-        Parameters
-        ----------
-        positions : torch.Tensor
-            atomic positions
-        box : torch.Tensor
-            simulation box
-        pairs : torch.Tensor
-            n_pairs * 2 tensor of pairs
-        ds : torch.Tensor
-            i-j distance tensor
-        buffer_scales : torch.Tensor
-            buffer scales for each pair, 1 if i < j else 0
-        params : Dict[str, torch.Tensor]
-            {
-                "charge": t_charges, # (optional) initial guess for atomic charges,
-                "chi": t_chi, # eletronegativity in energy / charge unit
-                "hardness": t_hardness, # atomic hardness in energy / charge^2 unit
-                "eta": t_eta, # Gaussian width in length unit
-                "electrode_mask": t_mask, # mask for QEq calculation, False for fixed charges and 1 for QEq
-            }
-
-        Returns
-        -------
-        energy: torch.Tensor
-            energy tensor
-        """
-        if "hardness" not in params:
-            params["hardness"] = torch.zeros_like(params["chi"])
-
-        full_charges = torch.where(params["electrode_mask"], 0.0, params["charge"])
-        full_params = copy.deepcopy(params)
-        full_params["charge"] = full_charges
-        energy = torch.zeros(1, device=positions.device)
-        for model in self.submodels.values():
-            energy = energy + model(
-                positions, box, pairs, ds, buffer_scales, full_params
-            )
-        elec_potential = calc_grads(energy, full_charges)
-
-        pair_mask = (
-            params["electrode_mask"][pairs[:, 0]]
-            & params["electrode_mask"][pairs[:, 1]]
-        )
-
-        chi = (
-            params["chi"][params["electrode_mask"]]
-            + elec_potential[params["electrode_mask"]]
-        )
-        eta = params["eta"][params["electrode_mask"]]
-        # charge = params["charge"][params["electrode_mask"]]
-        hardness = params["hardness"][params["electrode_mask"]]
-
-        qeq_out = self.solve_matrix_inversion(
-            positions[params["electrode_mask"]],
-            box,
-            chi,
-            hardness,
-            eta,
-            pairs[pair_mask],
-            ds[pair_mask],
-            buffer_scales[pair_mask],
-            params["constraint_matrix"],
-            params["constraint_vals"],
-        )
-        # todo: add choice for pgrads
-        opt_charge = qeq_out[1]
-        print(opt_charge)
-
-        total_energy = energy + qeq_out[0]
-        return total_energy
+    return potential[mask], efield
 
 
 class LAMMPSElectrodeConstraint:
+    """
+    Register the electrode constraint for LAMMPS
+
+    Parameters
+    ----------
+    indices : Union[List[int], np.ndarray]
+        indices of the atoms in constraint
+    mode : str
+        conp or conq
+    value : float
+        value of the constraint (potential or charge)
+    eta : float
+        eta in used in LAMMPS (in legth^-1)
+    chi: float
+        electronegativity [V]
+        default: 0.0 (single element)
+    hardness: float
+        atomic hardness [V/e]
+        default: 0.0
+    ffield: bool
+        if used as ffield group
+    """
+
     def __init__(
         self,
         indices: Union[List[int], np.ndarray],
@@ -631,6 +508,7 @@ class LAMMPSElectrodeConstraint:
         value: float,
         eta: float,
         chi: float = 0.0,
+        hardness: float = 0.0,
         ffield: bool = False,
     ) -> None:
         self.indices = np.array(indices, dtype=int)
@@ -642,6 +520,7 @@ class LAMMPSElectrodeConstraint:
 
         self.value = value
         self.eta = eta
+        self.hardness = hardness
         self.chi = chi
         self.ffield = ffield
 
@@ -652,8 +531,11 @@ def setup_from_lammps(
     symm: bool = True,
 ):
     mask = np.zeros(n_atoms, dtype=bool)
-    chi = np.zeros(n_atoms)
+
     eta = np.zeros(n_atoms)
+    chi = np.zeros(n_atoms)
+    hardness = np.zeros(n_atoms)
+
     constraint_matrix = []
     constraint_vals = []
     ffield_electrode_mask = []
@@ -661,12 +543,15 @@ def setup_from_lammps(
 
     for constraint in constraint_list:
         mask[constraint.indices] = True
-        chi[constraint.indices] = constraint.chi
         eta[constraint.indices] = 1 / constraint.eta * np.sqrt(2) / 2.0
+        chi[constraint.indices] = constraint.chi
+        hardness[constraint.indices] = constraint.hardness
         if constraint.mode == "conq":
             constraint_matrix.append(np.zeros((1, n_atoms)))
             constraint_matrix[-1][0, constraint.indices] = 1.0
             constraint_vals.append(constraint.value)
+        if constraint.mode == "conp":
+            chi[constraint.indices] -= constraint.value
         if constraint.ffield:
             ffield_electrode_mask.append(np.zeros((1, n_atoms)))
             ffield_electrode_mask[-1][0, constraint.indices] = 1.0
@@ -700,8 +585,9 @@ def setup_from_lammps(
 
     return (
         torch.tensor(mask),
-        torch.tensor(chi),
         torch.tensor(eta),
+        torch.tensor(chi),
+        torch.tensor(hardness),
         constraint_matrix,
         constraint_vals,
         ffield_electrode_mask,
@@ -758,3 +644,80 @@ def finite_field_add_chi_new(
     potential = potential_drop * zprd_offset
     mask = first_electrode_mask | second_electrode_mask
     return potential[mask], efield
+
+
+def run(
+    calculator: PolarisableElectrode,
+    positions: torch.Tensor,
+    box: torch.Tensor,
+    charges: torch.Tensor,
+    pairs: torch.Tensor,
+    ds: torch.Tensor,
+    buffer_scales: torch.Tensor,
+    electrode_mask: torch.Tensor,
+    eta: torch.Tensor,
+    chi: torch.Tensor,
+    hardness: torch.Tensor,
+    constraint_matrix: Optional[torch.Tensor],
+    constraint_vals: Optional[torch.Tensor],
+    ffield_electrode_mask: Optional[torch.Tensor],
+    ffield_potential: Optional[torch.Tensor],
+    method: str = "lbfgs",
+):
+    # ffield mode
+    if ffield_electrode_mask is not None:
+        assert not calculator.slab_corr, KeyError(
+            "Slab correction and finite field cannot be used together"
+        )
+
+    # electrode + electrolyte
+    chi_chemical = chi
+    chi_elec = calculator.calc_coulomb_potential(
+        electrode_mask,
+        positions,
+        box,
+        eta,
+        charges,
+        pairs,
+        ds,
+        buffer_scales,
+    )
+
+    # electrode
+    chi = chi_chemical + chi_elec
+    chi = chi[electrode_mask]
+    if ffield_electrode_mask is not None:
+        chi_ffield, _efield = finite_field_add_chi_new(
+            positions,
+            box,
+            ffield_electrode_mask,
+            ffield_potential,
+            calculator.slab_axis,
+        )
+        chi = chi + chi_ffield
+
+    pair_mask = electrode_mask[pairs[:, 0]] & electrode_mask[pairs[:, 1]]
+    args = [
+        calculator,
+        charges[electrode_mask],
+        positions[electrode_mask],
+        box,
+        chi,
+        hardness[electrode_mask],
+        eta[electrode_mask],
+        pairs[pair_mask],
+        ds[pair_mask],
+        buffer_scales[pair_mask],
+        constraint_matrix,
+        constraint_vals,
+        None,
+        True,
+        method,
+    ]
+    energy, q_opt = pgrad_optimize(*args)
+    # charges = params["charge"].clone()
+    # charges[electrode_mask != 0] = q_opt
+    # charge_opt = torch.Tensor(charges)
+    # charge_opt.requires_grad_(True)
+
+    return energy, q_opt
