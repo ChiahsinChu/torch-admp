@@ -7,12 +7,12 @@ variable        ETA             equal 1.6
 # ----------------- Init Section -----------------
 
 units           metal
-boundary        p p p
+boundary        p p f
 atom_style      full
 
 pair_style      coul/long 5.0
 kspace_style    pppm/electrode 1.0e-6
-kspace_modify   gewald 0.5
+kspace_modify   gewald 0.5 slab 3.0
 
 # ----------------- Atom Definition Section -----------------
 
@@ -23,8 +23,8 @@ Reading data file ...
   reading atoms ...
   216 atoms
 Finding 1-2 1-3 1-4 neighbors ...
-  special bond factors lj:    0        0        0
-  special bond factors coul:  0        0        0
+  special bond factors lj:    0        0        0       
+  special bond factors coul:  0        0        0       
      0 = max # of 1-2 neighbors
      0 = max # of 1-3 neighbors
      0 = max # of 1-4 neighbors
@@ -51,10 +51,11 @@ group           bottom id 109:216
 neighbor        2.0 bin
 neigh_modify    every 10 delay 0 check no
 
-fix             fconp bottom electrode/conp 0.0 ${ETA} couple top ${DT} symm on ffield on
-fix             fconp bottom electrode/conp 0.0 1.6 couple top ${DT} symm on ffield on
-fix             fconp bottom electrode/conp 0.0 1.6 couple top 20 symm on ffield on
+fix             fconp bottom electrode/conp 0.0 ${ETA} couple top ${DT} symm on
+fix             fconp bottom electrode/conp 0.0 1.6 couple top ${DT} symm on
+fix             fconp bottom electrode/conp 0.0 1.6 couple top 20 symm on
 216 atoms in group conp_group
+# check v_fconp_ffield_zfield
 
 dump            traj all custom 1 dump.lammpstrj id element xu yu zu fx fy fz q
 dump_modify     traj element Pt sort id format float %20.15g
@@ -94,12 +95,12 @@ PPPM/electrode initialization ...
 WARNING: Using kspace solver on system with no charge (src/kspace.cpp:314)
   using 12-bit tables for long-range coulomb (src/kspace.cpp:342)
   G vector (1/distance) = 0.5
-  grid = 9 8 24
+  grid = 9 8 64
   stencil order = 5
   estimated absolute RMS force accuracy = 0
   estimated relative force accuracy = 0
   using double precision KISS FFT
-  3d grid and FFT values/proc = 7440 1728
+  3d grid and FFT values/proc = 16080 4608
 Generated 0 of 0 mixed pair_coeff terms from geometric mixing rule
 Neighbor list info ...
   update: every = 10 steps, delay = 0 steps, check = no
@@ -118,12 +119,12 @@ Neighbor list info ...
       pair build: copy
       stencil: none
       bin: none
-Per MPI rank memory allocation (min/avg/max) = 7.283 | 7.283 | 7.283 Mbytes
-   Step          Temp          E_pair         E_mol          TotEng         Press
-         0   0              2.5921899      0              2.5921899      110.79567
-Loop time of 1.226e-06 on 1 procs for 0 steps with 216 atoms
+Per MPI rank memory allocation (min/avg/max) = 7.876 | 7.876 | 7.876 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+         0   0              9.1593921      0              9.1593921      339.58118    
+Loop time of 1.135e-06 on 1 procs for 0 steps with 216 atoms
 
-163.1% CPU use with 1 MPI tasks x 1 OpenMP threads
+176.2% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
@@ -135,17 +136,17 @@ Neigh   | 0          | 0          | 0          |   0.0 |  0.00
 Comm    | 0          | 0          | 0          |   0.0 |  0.00
 Output  | 0          | 0          | 0          |   0.0 |  0.00
 Modify  | 0          | 0          | 0          |   0.0 |  0.00
-Other   |            | 1.226e-06  |            |       |100.00
+Other   |            | 1.135e-06  |            |       |100.00
 
 Nlocal:            216 ave         216 max         216 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
-Nghost:           1256 ave        1256 max        1256 min
+Nghost:            520 ave         520 max         520 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
-Neighs:           7560 ave        7560 max        7560 min
+Neighs:           5832 ave        5832 max        5832 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 
-Total # of neighbors = 7560
-Ave neighs/atom = 35
+Total # of neighbors = 5832
+Ave neighs/atom = 27
 Ave special neighs/atom = 0
 Neighbor list builds = 0
 Dangerous builds not checked
@@ -154,11 +155,11 @@ System init for write_data ...
 PPPM/electrode initialization ...
   using 12-bit tables for long-range coulomb (src/kspace.cpp:342)
   G vector (1/distance) = 0.5
-  grid = 12 12 24
+  grid = 12 12 64
   stencil order = 5
-  estimated absolute RMS force accuracy = 6.2850532e-06
-  estimated relative force accuracy = 4.3647279e-07
+  estimated absolute RMS force accuracy = 4.7400233e-06
+  estimated relative force accuracy = 3.291764e-07
   using double precision KISS FFT
-  3d grid and FFT values/proc = 11191 3456
+  3d grid and FFT values/proc = 24187 9216
 Generated 0 of 0 mixed pair_coeff terms from geometric mixing rule
 Total wall time: 0:00:00

@@ -1,0 +1,41 @@
+variable        DT              equal 20.0
+variable        ETA             equal 1.6
+
+# ----------------- Init Section -----------------
+
+units           metal
+boundary        p p f
+atom_style      full
+
+pair_style      coul/long 5.0
+kspace_style    pppm/electrode 1.0e-6
+kspace_modify   gewald 0.5 slab 3.0
+
+# ----------------- Atom Definition Section -----------------
+
+read_data       system.data
+restart         100000 system.restart
+
+# ----------------- Force Field Section -----------------
+
+pair_coeff      * *
+
+mass            1 195.084
+
+#----------------- Def groups and variables -----------------
+
+group           top id 1:108
+group           bottom id 109:216
+
+# ----------------- Normal setting -----------------
+
+neighbor        2.0 bin
+neigh_modify    every 10 delay 0 check no
+
+fix             fconp bottom electrode/conp 0.0 ${ETA} couple top ${DT} symm on 
+
+dump            traj all custom 1 dump.lammpstrj id element xu yu zu fx fy fz q
+dump_modify     traj element Pt sort id format float %20.15g
+
+run             0
+write_data      after_system.data nocoeff
