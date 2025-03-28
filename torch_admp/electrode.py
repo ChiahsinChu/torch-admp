@@ -495,7 +495,7 @@ def finite_field_add_chi(
 
     potential = potential_drop * zprd_offset
     mask = (second_electrode == 1) | (first_electrode == 1)
-    return potential[mask], efield
+return potential[mask], efield
 
 
 class BackupPolarisableElectrode(QEqForceModule):
