@@ -646,7 +646,61 @@ def finite_field_add_chi_new(
     return potential[mask], efield
 
 
-def run(
+def infer(
+    calculator: PolarisableElectrode,
+    positions: torch.Tensor,
+    box: torch.Tensor,
+    charges: torch.Tensor,
+    pairs: torch.Tensor,
+    ds: torch.Tensor,
+    buffer_scales: torch.Tensor,
+    electrode_mask: torch.Tensor,
+    eta: torch.Tensor,
+    chi: torch.Tensor,
+    hardness: torch.Tensor,
+    constraint_matrix: Optional[torch.Tensor],
+    constraint_vals: Optional[torch.Tensor],
+    ffield_electrode_mask: Optional[torch.Tensor],
+    ffield_potential: Optional[torch.Tensor],
+    method: str = "lbfgs",
+):
+    _q_opt, efield = charge_optimisation(
+        calculator,
+        positions,
+        box,
+        charges,
+        pairs,
+        ds,
+        buffer_scales,
+        electrode_mask,
+        eta,
+        chi,
+        hardness,
+        constraint_matrix,
+        constraint_vals,
+        ffield_electrode_mask,
+        ffield_potential,
+        method,
+    )
+
+    q_opt = charges.clone()
+    q_opt[electrode_mask] = _q_opt
+
+    energy, forces = calculator.coulomb_calculator(
+        positions=positions,
+        box=box,
+        charges=q_opt,
+        eta=eta,
+        pairs=pairs,
+        ds=ds,
+        buffer_scales=buffer_scales,
+        efield=efield,
+    )
+
+    return energy, forces, q_opt
+
+
+def charge_optimisation(
     calculator: PolarisableElectrode,
     positions: torch.Tensor,
     box: torch.Tensor,
@@ -696,6 +750,11 @@ def run(
         )
         chi = chi + chi_ffield
 
+        efield = torch.zeros(3)
+        efield[calculator.slab_axis] = _efield
+    else:
+        efield = None
+
     pair_mask = electrode_mask[pairs[:, 0]] & electrode_mask[pairs[:, 1]]
     args = [
         calculator,
@@ -714,10 +773,5 @@ def run(
         True,
         method,
     ]
-    energy, q_opt = pgrad_optimize(*args)
-    # charges = params["charge"].clone()
-    # charges[electrode_mask != 0] = q_opt
-    # charge_opt = torch.Tensor(charges)
-    # charge_opt.requires_grad_(True)
-
-    return energy, q_opt
+    _energy, _q_opt = pgrad_optimize(*args)
+    return _q_opt, efield

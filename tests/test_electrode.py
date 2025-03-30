@@ -6,130 +6,121 @@ import numpy as np
 import torch
 from ase import io
 
+from torch_admp.electrode import (
+    LAMMPSElectrodeConstraint,
+    PolarisableElectrode,
+    infer,
+    setup_from_lammps,
+)
 from torch_admp.nblist import TorchNeighborList
-from torch_admp.qeq import QEqForceModule
-from torch_admp.utils import calc_grads, to_numpy_array
+from torch_admp.utils import to_numpy_array
 
 
-class TestSlab3D(unittest.TestCase):
-    def setUp(self):
-        atoms = io.read(Path(__file__).parent / "data/lmp_conp_slab_3d/dump.lammpstrj")
-        self.ref_charges = atoms.get_initial_charges()
-        self.ref_forces = atoms.get_forces()
+class LAMMPSReferenceDataTest:
+    def test(self) -> None:
+        rcut = 5.0
+        ethresh = 1e-6
+        kappa = 0.5
 
-        self.rcut = 5.0
-        self.calculator = QEqForceModule(rcut=self.rcut, ethresh=1e-6, kappa=0.5)
+        self.calculator = PolarisableElectrode(rcut=rcut, ethresh=ethresh, kappa=kappa)
 
-        self.positions = torch.tensor(atoms.get_positions(), requires_grad=True)
-        self.box = torch.tensor(atoms.cell.array)
+        self.ref_charges = self.atoms.get_initial_charges()
+        self.ref_forces = self.atoms.get_forces()
 
-        self.nblist = TorchNeighborList(cutoff=self.rcut)
-        self.pairs = self.nblist(self.positions, self.box)
-        self.ds = self.nblist.get_ds()
-        self.buffer_scales = self.nblist.get_buffer_scales()
-
-        # lammps input
-        lmp_dv = 20.0
-        lmp_eta = 1.6
-
-        self.efield = (
-            lmp_dv
-            / atoms.get_cell()[self.calculator.slab_axis, self.calculator.slab_axis]
-        )
-        chi = torch.concat(
-            [torch.zeros(len(atoms) // 2), torch.ones(len(atoms) // 2) * lmp_dv]
-        )
-        self.chi = chi + self.efield * self.positions[:, self.calculator.slab_axis]
-        self.hardness = torch.zeros_like(chi)
-        # take care of the different meaning of eta in lammps (1/length) and here!
-        self.eta = torch.ones_like(chi) * (1 / lmp_eta * np.sqrt(2) / 2)
-
-        self.constraint_matrix = torch.ones((1, len(atoms)))
-        self.constraint_vals = torch.tensor([0.0])
-
-    def test(self):
-        out = self.calculator.solve_matrix_inversion(
-            positions=self.positions,
-            box=self.box,
-            chi=self.chi,
-            hardness=self.hardness,
-            eta=self.eta,
-            pairs=self.pairs,
-            ds=self.ds,
-            buffer_scales=self.buffer_scales,
-            constraint_matrix=self.constraint_matrix,
-            constraint_vals=self.constraint_vals,
+        self.positions = torch.tensor(self.atoms.get_positions(), requires_grad=True)
+        self.box = torch.tensor(self.atoms.cell.array)
+        self.charges = torch.tensor(
+            self.atoms.get_initial_charges(), requires_grad=True
         )
 
-        # charge
-        self.assertTrue(
-            np.allclose(
-                to_numpy_array(out[1]),
-                self.ref_charges,
-                atol=1e-3,
-            )
+        nblist = TorchNeighborList(cutoff=rcut)
+        self.pairs = nblist(self.positions, self.box)
+        self.ds = nblist.get_ds()
+        self.buffer_scales = nblist.get_buffer_scales()
+
+        # energy, forces, q_opt
+        test_output = infer(
+            self.calculator,
+            self.positions,
+            self.box,
+            self.charges,
+            self.pairs,
+            self.ds,
+            self.buffer_scales,
+            *self.input_data,
         )
 
         # force
         # lammps: estimated absolute RMS force accuracy = 6.2850532e-06
-        test_forces = -calc_grads(out[0], self.positions)
-        diff = to_numpy_array(test_forces) - self.ref_forces
+        diff = to_numpy_array(test_output[1]) - self.ref_forces
         rmse = np.sqrt(np.mean((diff) ** 2))
         self.assertTrue(rmse < 1e-5)
         # max deviation
         self.assertTrue(
             np.allclose(
-                to_numpy_array(test_forces),
+                to_numpy_array(test_output[1]),
                 self.ref_forces,
                 atol=1e-4,
             )
         )
 
 
-# class TestSlab2D(unittest.TestCase):
-#     def setUp(self):
-#         pass
+class TestConpSlab3D(LAMMPSReferenceDataTest, unittest.TestCase):
+    def setUp(self) -> None:
+        self.atoms = io.read(
+            Path(__file__).parent / "data/lmp_conp_slab_3d/dump.lammpstrj"
+        )
+        self.ref_energy = 2.5921899
+
+        # mask, eta, chi, hardness, constraint_matrix, constraint_vals, ffield_electrode_mask, ffield_potential
+        self.input_data = setup_from_lammps(
+            len(self.atoms),
+            [
+                LAMMPSElectrodeConstraint(
+                    indices=np.arange(108),
+                    value=20.0,
+                    mode="conp",
+                    eta=1.6,
+                    ffield=True,
+                ),
+                LAMMPSElectrodeConstraint(
+                    indices=np.arange(108, 216),
+                    value=0.0,
+                    mode="conp",
+                    eta=1.6,
+                    ffield=True,
+                ),
+            ],
+        )
 
 
-# class TestInterface3D(unittest.TestCase):
-#     def setUp(self):
-#         pass
+class TestConpInterface3DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
+    def setUp(self) -> None:
+        self.atoms = io.read(
+            Path(__file__).parent / "data/lmp_conp_interface_3d_pzc/dump.lammpstrj"
+        )
+        self.ref_energy = -1943.6583
 
-
-# class TestInterface2D(unittest.TestCase):
-#     def setUp(self):
-#         pass
-
-
-# class TestLAMMPSRefData(unittest.TestCase):
-#     def setUp(self) -> None:
-#         self.fnames_2d = glob.glob(
-#             str(Path(__file__).parent / "data/lmp_con*_2d*/dump.lammpstrj")
-#         )
-#         self.fnames_2d.sort()
-#         self.fnames_3d = glob.glob(
-#             str(Path(__file__).parent / "data/lmp_con*_3d*/dump.lammpstrj")
-#         )
-#         self.fnames_3d.sort()
-
-#     def test(self):
-#         for fname_2d, fname_3d in zip(self.fnames_2d, self.fnames_3d):
-#             atoms_2d = io.read(fname_2d)
-#             atoms_3d = io.read(fname_3d)
-
-#             charges_2d = atoms_2d.get_initial_charges()
-#             charges_3d = atoms_3d.get_initial_charges()
-#             diff = charges_2d - charges_3d
-#             # rmse
-#             rmse = np.sqrt(np.mean(diff ** 2))
-#             print(fname_2d, rmse, np.abs(diff).max())
-#             # self.assertTrue(np.allclose(charges_2d, charges_3d, atol=1e-4))
-#             forces_2d = atoms_2d.get_forces()
-#             forces_3d = atoms_3d.get_forces()
-#             diff = forces_2d - forces_3d
-#             # rmse
-#             rmse = np.sqrt(np.mean(diff ** 2))
-#             print(fname_2d, rmse, np.abs(diff).max())
+        # mask, eta, chi, hardness, constraint_matrix, constraint_vals, ffield_electrode_mask, ffield_potential
+        self.input_data = setup_from_lammps(
+            len(self.atoms),
+            [
+                LAMMPSElectrodeConstraint(
+                    indices=np.arange(108),
+                    value=0.0,
+                    mode="conp",
+                    eta=1.6,
+                    ffield=True,
+                ),
+                LAMMPSElectrodeConstraint(
+                    indices=np.arange(108, 216),
+                    value=0.0,
+                    mode="conp",
+                    eta=1.6,
+                    ffield=True,
+                ),
+            ],
+        )
 
 
 if __name__ == "__main__":
