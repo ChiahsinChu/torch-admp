@@ -405,7 +405,6 @@ def conq_aimd_data(
 ) -> torch.Tensor:
     charge = params["charge"]
     constraint_vals = torch.sum(charge[electrode_mask == 0]) * -1
-    electrode_positions = positions[electrode_mask == 1]
     constraint_matrix = torch.ones([1, len(electrode_mask)])
 
     return _conq(
