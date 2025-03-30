@@ -21,14 +21,20 @@ class LAMMPSReferenceDataTest:
         rcut = 5.0
         ethresh = 1e-6
         kappa = 0.5
+        slab_factor = 3.0
 
-        self.calculator = PolarisableElectrode(rcut=rcut, ethresh=ethresh, kappa=kappa)
+        self.calculator = PolarisableElectrode(
+            rcut=rcut, ethresh=ethresh, kappa=kappa, slab_corr=self.slab_corr
+        )
 
         self.ref_charges = self.atoms.get_initial_charges()
         self.ref_forces = self.atoms.get_forces()
 
         self.positions = torch.tensor(self.atoms.get_positions(), requires_grad=True)
-        self.box = torch.tensor(self.atoms.cell.array)
+        cell = self.atoms.cell.array
+        if self.slab_corr:
+            cell[2, 2] *= slab_factor
+        self.box = torch.tensor(cell)
         self.charges = torch.tensor(
             self.atoms.get_initial_charges(), requires_grad=True
         )
@@ -67,12 +73,11 @@ class LAMMPSReferenceDataTest:
 
 class TestConpSlab3D(LAMMPSReferenceDataTest, unittest.TestCase):
     def setUp(self) -> None:
+        self.slab_corr = False
         self.atoms = io.read(
             Path(__file__).parent / "data/lmp_conp_slab_3d/dump.lammpstrj"
         )
         self.ref_energy = 2.5921899
-
-        # mask, eta, chi, hardness, constraint_matrix, constraint_vals, ffield_electrode_mask, ffield_potential
         self.input_data = setup_from_lammps(
             len(self.atoms),
             [
@@ -94,14 +99,39 @@ class TestConpSlab3D(LAMMPSReferenceDataTest, unittest.TestCase):
         )
 
 
+class TestConpSlab2D(LAMMPSReferenceDataTest, unittest.TestCase):
+    def setUp(self) -> None:
+        self.slab_corr = True
+        self.atoms = io.read(
+            Path(__file__).parent / "data/lmp_conp_slab_2d/dump.lammpstrj"
+        )
+        self.ref_energy = 2.5921899
+        self.input_data = setup_from_lammps(
+            len(self.atoms),
+            [
+                LAMMPSElectrodeConstraint(
+                    indices=np.arange(108),
+                    value=20.0,
+                    mode="conp",
+                    eta=1.6,
+                ),
+                LAMMPSElectrodeConstraint(
+                    indices=np.arange(108, 216),
+                    value=0.0,
+                    mode="conp",
+                    eta=1.6,
+                ),
+            ],
+        )
+
+
 class TestConpInterface3DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
     def setUp(self) -> None:
+        self.slab_corr = False
         self.atoms = io.read(
             Path(__file__).parent / "data/lmp_conp_interface_3d_pzc/dump.lammpstrj"
         )
         self.ref_energy = -1943.6583
-
-        # mask, eta, chi, hardness, constraint_matrix, constraint_vals, ffield_electrode_mask, ffield_potential
         self.input_data = setup_from_lammps(
             len(self.atoms),
             [
