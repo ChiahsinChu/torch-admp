@@ -755,6 +755,14 @@ def charge_optimisation(
         efield = None
 
     pair_mask = electrode_mask[pairs[:, 0]] & electrode_mask[pairs[:, 1]]
+    # electrode_indices find the indices of electrode_mask which is True
+    electrode_indices = torch.arange(electrode_mask.size(0))[electrode_mask]
+    mapping = torch.zeros(electrode_mask.size(0), dtype=torch.long)
+    mapping[electrode_indices] = torch.arange(electrode_mask.sum())
+    pair_i = pairs[pair_mask][:, 0]
+    pair_j = pairs[pair_mask][:, 1]
+    new_pairs = torch.stack([mapping[pair_i], mapping[pair_j]], dim=1)
+
     args = [
         calculator,
         charges[electrode_mask],
@@ -763,7 +771,7 @@ def charge_optimisation(
         chi,
         hardness[electrode_mask],
         eta[electrode_mask],
-        pairs[pair_mask],
+        new_pairs,
         ds[pair_mask],
         buffer_scales[pair_mask],
         constraint_matrix,
