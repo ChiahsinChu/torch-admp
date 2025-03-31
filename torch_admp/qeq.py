@@ -918,6 +918,8 @@ def pgrad_optimize(
         constraint_matrix,
         coeff_matrix,
     )
+    if out[1] == -1:
+        Warning("Optimization did not converge.")
     module.converge_iter = out[1]
     q_opt = out[0].detach()
     q_opt.requires_grad = True
