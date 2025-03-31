@@ -167,7 +167,7 @@ class LAMMPSReferenceDataTest:
 
     def _write_csv(self, data, filename):
         """Write the differences to a CSV file."""
-        with open(filename, mode='w', newline='') as file:
+        with open(filename, mode='a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(["Index", "Difference"])
             for i, diff in enumerate(data):

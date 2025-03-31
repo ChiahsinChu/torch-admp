@@ -548,6 +548,8 @@ def setup_from_lammps(
         if constraint.mode == "conq":
             if symm:
                 raise AttributeError("symm should be False for conq, user can implement symm by conq")
+            if constraint.ffield:
+                raise AttributeError("ffield with conq has not been implemented yet")
             constraint_matrix.append(np.zeros((1, n_atoms)))
             constraint_matrix[-1][0, constraint.indices] = 1.0
             constraint_vals.append(constraint.value)
@@ -581,7 +583,8 @@ def setup_from_lammps(
         )
         constraint_vals = torch.tensor(np.array(constraint_vals))
     else:
-        constraint_matrix = torch.zeros((0, n_atoms))
+        number_electrode = mask.sum()
+        constraint_matrix = torch.zeros((0, number_electrode))
         constraint_vals = torch.zeros(0)
 
     return (
