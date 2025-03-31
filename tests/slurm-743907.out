@@ -1,0 +1,107 @@
+FF...FFFF..
+======================================================================
+FAIL: test (__main__.TestConpInterface2DBIAS)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/public/home/hans/02.dmff_test/torch_dmff/torch-dmff/tests/test_electrode.py", line 151, in test
+    self.assertTrue(rmse < 1e-5)
+AssertionError: False is not true
+
+======================================================================
+FAIL: test (__main__.TestConpInterface2DPZC)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/public/home/hans/02.dmff_test/torch_dmff/torch-dmff/tests/test_electrode.py", line 151, in test
+    self.assertTrue(rmse < 1e-5)
+AssertionError: False is not true
+
+======================================================================
+FAIL: test (__main__.TestConqInterface2DBIAS)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/public/home/hans/02.dmff_test/torch_dmff/torch-dmff/tests/test_electrode.py", line 151, in test
+    self.assertTrue(rmse < 1e-5)
+AssertionError: False is not true
+
+======================================================================
+FAIL: test (__main__.TestConqInterface2DEDL)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/public/home/hans/02.dmff_test/torch_dmff/torch-dmff/tests/test_electrode.py", line 151, in test
+    self.assertTrue(rmse < 1e-5)
+AssertionError: False is not true
+
+======================================================================
+FAIL: test (__main__.TestConqInterface2DPZC)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/public/home/hans/02.dmff_test/torch_dmff/torch-dmff/tests/test_electrode.py", line 151, in test
+    self.assertTrue(rmse < 1e-5)
+AssertionError: False is not true
+
+======================================================================
+FAIL: test (__main__.TestConqInterface3DBIAS)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/public/home/hans/02.dmff_test/torch_dmff/torch-dmff/tests/test_electrode.py", line 151, in test
+    self.assertTrue(rmse < 1e-5)
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 11 tests in 4.092s
+
+FAILED (failures=6)
+RMSE exceeds threshold: 5.005708230924939e-05
+Differences in forces:
+ [[-2.94597047e-09 -3.01325268e-07 -2.13944038e-07]
+ [ 1.07245150e-07 -1.94164418e-07  4.62773282e-09]
+ [-7.82386913e-09 -3.47745452e-08 -1.40958843e-07]
+ ...
+ [ 1.19621715e-05  6.33538353e-06 -3.17111470e-05]
+ [-1.28831566e-05  1.39779478e-05  5.11030193e-06]
+ [-2.58734951e-07 -2.65587346e-05  5.06326908e-05]]
+RMSE exceeds threshold: 5.006804983080718e-05
+Differences in forces:
+ [[ 1.15578869e-07 -9.49725331e-07 -1.24981446e-06]
+ [ 1.99251850e-07 -8.84523846e-07 -1.35314516e-07]
+ [-2.03373674e-07 -2.32691112e-07 -7.61474718e-07]
+ ...
+ [ 1.23849176e-05  6.22594933e-06 -2.84425957e-05]
+ [-1.31883788e-05  1.40009464e-05  3.47460612e-06]
+ [-4.21125263e-07 -2.65050996e-05  4.91174573e-05]]
+RMSE exceeds threshold: 5.027917536510833e-05
+Differences in forces:
+ [[ 2.48160992e-08 -5.86595574e-06 -9.56245852e-06]
+ [ 7.94668146e-07 -6.59782855e-06  1.63134779e-07]
+ [-6.31059414e-07 -1.58260823e-06 -4.35863225e-06]
+ ...
+ [ 1.20322273e-05  6.28295399e-06 -2.97582206e-05]
+ [-1.29499685e-05  1.39759327e-05  3.72297071e-06]
+ [-2.82761035e-07 -2.65299852e-05  4.97070277e-05]]
+RMSE exceeds threshold: 3.873788735215274e-05
+Differences in forces:
+ [[-2.03909370e-07 -2.93761763e-07 -4.26312904e-06]
+ [-1.28031648e-06 -2.09489211e-06  3.07846861e-06]
+ [-1.11621908e-06 -2.02655729e-06  5.99398661e-06]
+ ...
+ [ 1.62614848e-05 -6.89443033e-06  9.69251740e-05]
+ [-1.64304301e-05  1.09109797e-05 -5.13725184e-05]
+ [ 6.50183712e-06 -1.27411053e-05 -7.78460285e-05]]
+RMSE exceeds threshold: 5.006804983164248e-05
+Differences in forces:
+ [[ 1.15578871e-07 -9.49725331e-07 -1.24981446e-06]
+ [ 1.99251854e-07 -8.84523847e-07 -1.35314519e-07]
+ [-2.03373682e-07 -2.32691111e-07 -7.61474723e-07]
+ ...
+ [ 1.23849175e-05  6.22594937e-06 -2.84425954e-05]
+ [-1.31883788e-05  1.40009465e-05  3.47460598e-06]
+ [-4.21125299e-07 -2.65050997e-05  4.91174573e-05]]
+RMSE exceeds threshold: 1.7484524951743357
+Differences in forces:
+ [[ 2.21984964e-03  5.40024738e-02  1.14015183e+00]
+ [-4.46139590e-02  6.79964042e-02  1.10478954e+00]
+ [ 2.96616240e-02  1.58601594e-02  1.12250212e+00]
+ ...
+ [ 1.78126172e-05 -6.12395966e-06  4.86748934e+00]
+ [-5.62458818e-06  1.12817149e-06 -2.43374376e+00]
+ [-9.52639310e-06 -2.75255429e-06 -2.43372199e+00]]

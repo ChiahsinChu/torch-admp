@@ -1,0 +1,67 @@
+EE
+======================================================================
+ERROR: test (__main__.TestConpInterface3DPZC)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/public/home/hans/02.dmff_test/torch_dmff/torch-dmff/tests/test_electrode_2.py", line 42, in test
+    test_output = infer(
+  File "/public/home/hans/.conda/envs/dmff_310/lib/python3.10/site-packages/torch_admp/electrode.py", line 669, in infer
+    _q_opt, efield = charge_optimisation(
+  File "/public/home/hans/.conda/envs/dmff_310/lib/python3.10/site-packages/torch_admp/electrode.py", line 778, in charge_optimisation
+    _energy, _q_opt = pgrad_optimize(*args)
+  File "/public/home/hans/.conda/envs/dmff_310/lib/python3.10/site-packages/torch_admp/qeq.py", line 890, in pgrad_optimize
+    q0 = vector_projection(q0, constraint_matrix, constraint_vals)
+RuntimeError: The following operation failed in the TorchScript interpreter.
+Traceback of TorchScript (most recent call last):
+  File "/public/home/hans/.conda/envs/dmff_310/lib/python3.10/site-packages/torch_admp/utils.py", line 168, in vector_projection
+
+    # n_atoms * n_atoms
+    coeff_matrix = vector_projection_coeff_matrix(constraint_matrix)
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ <--- HERE
+    # n_atoms * 1
+    residual = constraint_vector.reshape(-1, 1) - torch.matmul(
+  File "/public/home/hans/.conda/envs/dmff_310/lib/python3.10/site-packages/torch_admp/utils.py", line 129, in vector_projection_coeff_matrix
+        Coefficient matrix (n_atoms * n_const).
+    """
+    constraint_matrix_t = torch.transpose(constraint_matrix, 0, 1)
+                          ~~~~~~~~~~~~~~~ <--- HERE
+    # n_atoms * n_const
+    coeff_mat = torch.matmul(
+RuntimeError: Expected a proper Tensor but got None (or an undefined Tensor in C++) for argument #0 'self'
+
+
+======================================================================
+ERROR: test (__main__.TestConpSlab3D)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/public/home/hans/02.dmff_test/torch_dmff/torch-dmff/tests/test_electrode_2.py", line 42, in test
+    test_output = infer(
+  File "/public/home/hans/.conda/envs/dmff_310/lib/python3.10/site-packages/torch_admp/electrode.py", line 669, in infer
+    _q_opt, efield = charge_optimisation(
+  File "/public/home/hans/.conda/envs/dmff_310/lib/python3.10/site-packages/torch_admp/electrode.py", line 778, in charge_optimisation
+    _energy, _q_opt = pgrad_optimize(*args)
+  File "/public/home/hans/.conda/envs/dmff_310/lib/python3.10/site-packages/torch_admp/qeq.py", line 890, in pgrad_optimize
+    q0 = vector_projection(q0, constraint_matrix, constraint_vals)
+RuntimeError: The following operation failed in the TorchScript interpreter.
+Traceback of TorchScript (most recent call last):
+  File "/public/home/hans/.conda/envs/dmff_310/lib/python3.10/site-packages/torch_admp/utils.py", line 168, in vector_projection
+
+    # n_atoms * n_atoms
+    coeff_matrix = vector_projection_coeff_matrix(constraint_matrix)
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ <--- HERE
+    # n_atoms * 1
+    residual = constraint_vector.reshape(-1, 1) - torch.matmul(
+  File "/public/home/hans/.conda/envs/dmff_310/lib/python3.10/site-packages/torch_admp/utils.py", line 129, in vector_projection_coeff_matrix
+        Coefficient matrix (n_atoms * n_const).
+    """
+    constraint_matrix_t = torch.transpose(constraint_matrix, 0, 1)
+                          ~~~~~~~~~~~~~~~ <--- HERE
+    # n_atoms * n_const
+    coeff_mat = torch.matmul(
+RuntimeError: Expected a proper Tensor but got None (or an undefined Tensor in C++) for argument #0 'self'
+
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.797s
+
+FAILED (errors=2)

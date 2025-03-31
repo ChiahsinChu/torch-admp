@@ -528,7 +528,7 @@ class LAMMPSElectrodeConstraint:
 def setup_from_lammps(
     n_atoms: int,
     constraint_list: List[LAMMPSElectrodeConstraint],
-    symm: bool = True,
+    symm: bool = False,
 ):
     mask = np.zeros(n_atoms, dtype=bool)
 
@@ -547,6 +547,8 @@ def setup_from_lammps(
         chi[constraint.indices] = constraint.chi
         hardness[constraint.indices] = constraint.hardness
         if constraint.mode == "conq":
+            if symm:
+                raise AttributeError("symm should be False for conq, user can implement symm by conq")
             constraint_matrix.append(np.zeros((1, n_atoms)))
             constraint_matrix[-1][0, constraint.indices] = 1.0
             constraint_vals.append(constraint.value)
@@ -580,8 +582,8 @@ def setup_from_lammps(
         )
         constraint_vals = torch.tensor(np.array(constraint_vals))
     else:
-        constraint_matrix = None
-        constraint_vals = None
+        constraint_matrix = torch.zeros((0, n_atoms))
+        constraint_vals = torch.zeros(0)
 
     return (
         torch.tensor(mask),
@@ -758,7 +760,7 @@ def charge_optimisation(
     pair_mask = electrode_mask[pairs[:, 0]] & electrode_mask[pairs[:, 1]]
     args = [
         calculator,
-        charges[electrode_mask],
+        charges[electrode_mask].reshape(-1, 1),
         positions[electrode_mask],
         box,
         chi,

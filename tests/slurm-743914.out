@@ -1,0 +1,13 @@
+.F.
+======================================================================
+FAIL: test (__main__.TestConpSlab2D)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/public/home/hans/02.dmff_test/torch_dmff/torch-dmff/tests/test_electrode_2.py", line 63, in test
+    self.assertTrue(rmse < 1e-5)
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 3 tests in 2.696s
+
+FAILED (failures=1)
