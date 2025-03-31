@@ -31,3 +31,6 @@ test = [
     "DMFF @ git+https://github.com/ChiahsinChu/DMFF.git@devel",
 ]
 docs = ["sphinx", "sphinx-rtd-theme"]
+
+[tool.setuptools]
+packages = ["torch_admp"]

@@ -405,7 +405,6 @@ def conq_aimd_data(
 ) -> torch.Tensor:
     charge = params["charge"]
     constraint_vals = torch.sum(charge[electrode_mask == 0]) * -1
-    electrode_positions = positions[electrode_mask == 1]
     constraint_matrix = torch.ones([1, len(electrode_mask)])
 
     return _conq(
@@ -758,6 +757,14 @@ def charge_optimisation(
         efield = None
 
     pair_mask = electrode_mask[pairs[:, 0]] & electrode_mask[pairs[:, 1]]
+    # electrode_indices find the indices of electrode_mask which is True
+    electrode_indices = torch.arange(electrode_mask.size(0))[electrode_mask]
+    mapping = torch.zeros(electrode_mask.size(0), dtype=torch.long)
+    mapping[electrode_indices] = torch.arange(electrode_mask.sum())
+    pair_i = pairs[pair_mask][:, 0]
+    pair_j = pairs[pair_mask][:, 1]
+    new_pairs = torch.stack([mapping[pair_i], mapping[pair_j]], dim=1)
+
     args = [
         calculator,
         charges[electrode_mask].reshape(-1, 1),
@@ -766,7 +773,7 @@ def charge_optimisation(
         chi,
         hardness[electrode_mask],
         eta[electrode_mask],
-        pairs[pair_mask],
+        new_pairs,
         ds[pair_mask],
         buffer_scales[pair_mask],
         constraint_matrix,
@@ -776,4 +783,5 @@ def charge_optimisation(
         method,
     ]
     _energy, _q_opt = pgrad_optimize(*args)
+    # _energy, _q_opt = matinv_optimize(*args)
     return _q_opt, efield

@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from ase import io
-
+import csv
 from torch_admp.electrode import (
     LAMMPSElectrodeConstraint,
     PolarisableElectrode,
@@ -72,6 +72,7 @@ class LAMMPSReferenceDataTest:
 
 class TestConpSlab3D(LAMMPSReferenceDataTest, unittest.TestCase):
     def setUp(self) -> None:
+        self.slab_corr = False
         self.atoms = io.read(
             Path(__file__).parent / "data/lmp_conp_slab_3d/dump.lammpstrj"
         )
@@ -99,9 +100,6 @@ class TestConpSlab3D(LAMMPSReferenceDataTest, unittest.TestCase):
             True,
         )
 '''
-import numpy as np
-import torch
-import csv
 class LAMMPSReferenceDataTest:
     def test(self) -> None:
         rcut = 5.0
@@ -207,6 +205,7 @@ class TestConpSlab2D(LAMMPSReferenceDataTest, unittest.TestCase):
 
 class TestConpInterface3DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
     def setUp(self) -> None:
+        self.slab_corr = False
         self.atoms = io.read(
             Path(__file__).parent / "data/lmp_conp_interface_3d_pzc/dump.lammpstrj"
         )

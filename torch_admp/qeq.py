@@ -918,6 +918,8 @@ def pgrad_optimize(
         constraint_matrix,
         coeff_matrix,
     )
+    if out[1] == -1:
+        Warning("Optimization did not converge.")
     module.converge_iter = out[1]
     q_opt = out[0].detach()
     q_opt.requires_grad = True
@@ -1080,3 +1082,77 @@ def _pgrad_optimize_quadratic(func_energy: Callable, max_iter: int, eps: float):
         return xk, converge_iter
 
     return solver_fn
+
+
+def matinv_optimize(
+    module: QEqForceModule,
+    q0: Optional[torch.Tensor],
+    positions: torch.Tensor,
+    box: Optional[torch.Tensor],
+    chi: torch.Tensor,
+    hardness: torch.Tensor,
+    eta: torch.Tensor,
+    pairs: torch.Tensor,
+    ds: torch.Tensor,
+    buffer_scales: torch.Tensor,
+    constraint_matrix: torch.Tensor,
+    constraint_vals: torch.Tensor,
+    coeff_matrix: Optional[torch.Tensor] = None,
+    reinit_q: bool = False,
+    method: str = "lbfgs",
+):
+    # calculate hessian
+    # n_atoms * n_atoms
+    hessian = calc_hessian(
+        module.func_energy, positions, box, chi, hardness, eta, pairs, ds, buffer_scales
+    )
+
+    # coeff matrix as [[hessian, constraint_matrix.T], [constraint_matrix, 0]]
+    # (n_atoms + n_const) * (n_atoms + n_const)
+    n_atoms = positions.shape[0]
+    if constraint_matrix is None:
+        coeff_matrix = hessian
+        vector = -chi
+    else:
+        n_const = constraint_matrix.shape[0]
+        coeff_matrix = torch.cat(
+            [
+                torch.cat([hessian, constraint_matrix.T], dim=1),
+                torch.cat([constraint_matrix, torch.zeros(n_const, n_const)], dim=1),
+            ],
+            dim=0,
+        )
+        vector = torch.concat([-chi, constraint_vals])
+
+    _q_opt = torch.linalg.solve(coeff_matrix, vector.reshape(-1, 1)).reshape(-1)
+
+    q_opt = _q_opt[:n_atoms].detach()
+    q_opt.requires_grad = True
+    energy = module.func_energy(
+        q_opt, positions, box, chi, hardness, eta, pairs, ds, buffer_scales
+    )
+    return energy, q_opt
+
+
+def calc_hessian(
+    func_energy: Callable,
+    positions: torch.Tensor,
+    box: Optional[torch.Tensor],
+    chi: torch.Tensor,
+    hardness: torch.Tensor,
+    eta: torch.Tensor,
+    pairs: torch.Tensor,
+    ds: torch.Tensor,
+    buffer_scales: torch.Tensor,
+):
+    n_atoms = positions.shape[0]
+    q_tmp = torch.zeros(
+        n_atoms, device=positions.device, dtype=torch.float64, requires_grad=True
+    )
+    y = func_energy(q_tmp, positions, box, chi, hardness, eta, pairs, ds, buffer_scales)
+    grad = torch.autograd.grad(y, q_tmp, retain_graph=True, create_graph=True)
+    hessian = []
+    for anygrad in grad[0]:
+        hessian.append(torch.autograd.grad(anygrad, q_tmp, retain_graph=True)[0])
+    hessian = torch.stack(hessian)
+    return hessian.reshape([n_atoms, n_atoms])
