@@ -781,4 +781,5 @@ def charge_optimisation(
         method,
     ]
     _energy, _q_opt = pgrad_optimize(*args)
+    # _energy, _q_opt = matinv_optimize(*args)
     return _q_opt, efield
