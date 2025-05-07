@@ -1,8 +1,16 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
+import warnings
 from typing import Optional, Tuple
 
 import torch
-from deepmd.pt.utils.nlist import extend_input_and_build_neighbor_list
+
+try:
+    from deepmd.pt.utils.nlist import extend_input_and_build_neighbor_list
+except ImportError:
+    warnings.warn(
+        "deepmd.pt is required for dp_nblist",
+    )
+
 from vesin.torch import NeighborList
 
 from torch_admp.spatial import pbc_shift

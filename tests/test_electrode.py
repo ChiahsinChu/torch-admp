@@ -13,7 +13,6 @@ from torch_admp.electrode import (
     infer,
     setup_from_lammps,
 )
-
 from torch_admp.nblist import vesin_nblist
 from torch_admp.utils import to_numpy_array
 
