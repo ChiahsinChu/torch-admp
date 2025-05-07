@@ -835,6 +835,7 @@ def pgrad_optimize(
     coeff_matrix: Optional[torch.Tensor] = None,
     reinit_q: bool = False,
     method: str = "lbfgs",
+    **kwargs,
 ):
     """Function to optimize atomic charges with projected gradient method
 
@@ -1086,7 +1087,6 @@ def _pgrad_optimize_quadratic(func_energy: Callable, max_iter: int, eps: float):
 
 def matinv_optimize(
     module: QEqForceModule,
-    q0: Optional[torch.Tensor],
     positions: torch.Tensor,
     box: Optional[torch.Tensor],
     chi: torch.Tensor,
@@ -1097,9 +1097,7 @@ def matinv_optimize(
     buffer_scales: torch.Tensor,
     constraint_matrix: torch.Tensor,
     constraint_vals: torch.Tensor,
-    coeff_matrix: Optional[torch.Tensor] = None,
-    reinit_q: bool = False,
-    method: str = "lbfgs",
+    **kwargs,
 ):
     # calculate hessian
     # n_atoms * n_atoms

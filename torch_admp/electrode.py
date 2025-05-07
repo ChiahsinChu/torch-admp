@@ -1,15 +1,14 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
-from typing import Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import torch
 
-from torch_admp.nblist import TorchNeighborList
-from torch_admp.qeq import QEqForceModule, pgrad_optimize
+from torch_admp.qeq import QEqForceModule, matinv_optimize, pgrad_optimize
 from torch_admp.utils import calc_grads
 
 
-class PolarisableElectrode(QEqForceModule):
+class PolarizableElectrode(QEqForceModule):
     """Polarizable Electrode Model
 
     Parameters
@@ -115,309 +114,309 @@ class PolarisableElectrode(QEqForceModule):
         return energy, forces
 
 
-def _conp(
-    module: PolarisableElectrode,
-    electrode_mask: torch.Tensor,
-    positions: torch.Tensor,
-    constraint_matrix: torch.Tensor,
-    constraint_vals: torch.Tensor,
-    box: Optional[torch.Tensor],
-    params: Dict[str, torch.Tensor],
-    method: Optional[str] = "lbfgs",
-    ffield: Optional[bool] = False,
-) -> torch.Tensor:
-    """
-    Constrained Potential Method implementation
-    An instantiation of QEq Module for electrode systems totally
+# def _conp(
+#     module: PolarizableElectrode,
+#     electrode_mask: torch.Tensor,
+#     positions: torch.Tensor,
+#     constraint_matrix: torch.Tensor,
+#     constraint_vals: torch.Tensor,
+#     box: Optional[torch.Tensor],
+#     params: Dict[str, torch.Tensor],
+#     method: Optional[str] = "lbfgs",
+#     ffield: Optional[bool] = False,
+# ) -> torch.Tensor:
+#     """
+#     Constrained Potential Method implementation
+#     An instantiation of QEq Module for electrode systems totally
 
-    The electrode_mask not only contains information about which atoms are electrode atoms,
-    but also the potential(in volt) of the electrode atoms
-    """
-    n_atoms = len(electrode_mask)
-    box = box if box is not None else torch.zeros(3, 3)
+#     The electrode_mask not only contains information about which atoms are electrode atoms,
+#     but also the potential(in volt) of the electrode atoms
+#     """
+#     n_atoms = len(electrode_mask)
+#     box = box if box is not None else torch.zeros(3, 3)
 
-    if "chi" not in params:
-        params["chi"] = torch.zeros(n_atoms)
-    if "hardness" not in params:
-        params["hardness"] = torch.zeros(n_atoms)
+#     if "chi" not in params:
+#         params["chi"] = torch.zeros(n_atoms)
+#     if "hardness" not in params:
+#         params["hardness"] = torch.zeros(n_atoms)
 
-    electrode_params = {k: v[electrode_mask != 0] for k, v in params.items()}
-    electrode_positions = positions[electrode_mask != 0]
-    charge = params["charge"]
+#     electrode_params = {k: v[electrode_mask != 0] for k, v in params.items()}
+#     electrode_positions = positions[electrode_mask != 0]
+#     charge = params["charge"]
 
-    # calculate pairs
-    nblist = TorchNeighborList(cutoff=module.rcut)
-    pairs = nblist(positions, box)
-    ds = nblist.get_ds()
-    buffer_scales = nblist.get_buffer_scales()
+#     # calculate pairs
+#     nblist = TorchNeighborList(cutoff=module.rcut)
+#     pairs = nblist(positions, box)
+#     ds = nblist.get_ds()
+#     buffer_scales = nblist.get_buffer_scales()
 
-    chi_elec = module.calc_coulomb_potential(
-        electrode_mask,
-        positions,
-        box,
-        params["eta"],
-        params["charge"],
-        pairs,
-        ds,
-        buffer_scales,
-    )
-    chi = params["chi"] + chi_elec
-    ##Apply the constant potential condition
-    electrode_params["chi"] = (
-        chi[electrode_mask != 0] - electrode_mask[electrode_mask != 0]
-    )
-    ##Apply the finite field condition
-    if ffield:
-        if module.slab_corr:
-            raise KeyError("Slab correction and finite field cannot be used together")
-        potential, _efield = finite_field_add_chi(
-            positions, box, electrode_mask, module.slab_axis
-        )
-        electrode_params["chi"] = electrode_params["chi"] + potential
-        module.ffield_flag = True
+#     chi_elec = module.calc_coulomb_potential(
+#         electrode_mask,
+#         positions,
+#         box,
+#         params["eta"],
+#         params["charge"],
+#         pairs,
+#         ds,
+#         buffer_scales,
+#     )
+#     chi = params["chi"] + chi_elec
+#     ##Apply the constant potential condition
+#     electrode_params["chi"] = (
+#         chi[electrode_mask != 0] - electrode_mask[electrode_mask != 0]
+#     )
+#     ##Apply the finite field condition
+#     if ffield:
+#         if module.slab_corr:
+#             raise KeyError("Slab correction and finite field cannot be used together")
+#         potential, _efield = finite_field_add_chi(
+#             positions, box, electrode_mask, module.slab_axis
+#         )
+#         electrode_params["chi"] = electrode_params["chi"] + potential
+#         module.ffield_flag = True
 
-    # Neighbor list calculations
-    pairs = nblist(electrode_positions, box)
-    ds = nblist.get_ds()
-    buffer_scales = nblist.get_buffer_scales()
+#     # Neighbor list calculations
+#     pairs = nblist(electrode_positions, box)
+#     ds = nblist.get_ds()
+#     buffer_scales = nblist.get_buffer_scales()
 
-    constraint_matrix = constraint_matrix[:, electrode_mask != 0]
-    q0 = charge[electrode_mask != 0]
-    args = [
-        module,
-        q0,
-        electrode_positions,
-        box,
-        electrode_params["chi"],
-        electrode_params["hardness"],
-        electrode_params["eta"],
-        pairs,
-        ds,
-        buffer_scales,
-        constraint_matrix,
-        constraint_vals,
-        None,
-        True,
-        method,
-    ]
-    energy, q_opt = pgrad_optimize(*args)
-    charges = params["charge"].clone()
-    charges[electrode_mask != 0] = q_opt
-    charge_opt = torch.Tensor(charges)
-    charge_opt.requires_grad_(True)
+#     constraint_matrix = constraint_matrix[:, electrode_mask != 0]
+#     q0 = charge[electrode_mask != 0]
+#     args = [
+#         module,
+#         q0,
+#         electrode_positions,
+#         box,
+#         electrode_params["chi"],
+#         electrode_params["hardness"],
+#         electrode_params["eta"],
+#         pairs,
+#         ds,
+#         buffer_scales,
+#         constraint_matrix,
+#         constraint_vals,
+#         None,
+#         True,
+#         method,
+#     ]
+#     energy, q_opt = pgrad_optimize(*args)
+#     charges = params["charge"].clone()
+#     charges[electrode_mask != 0] = q_opt
+#     charge_opt = torch.Tensor(charges)
+#     charge_opt.requires_grad_(True)
 
-    return charge_opt
-
-
-def conp(
-    module: PolarisableElectrode,
-    electrode_mask: torch.Tensor,
-    positions: torch.Tensor,
-    box: Optional[torch.Tensor],
-    params: Dict[str, torch.Tensor],
-    method: Optional[str] = "lbfgs",
-    symm: bool = True,
-    ffield: Optional[bool] = False,
-) -> torch.Tensor:
-    """
-    Lammps like implementation for User which is more convenient
-    """
-    # n_electrode_atoms = len(electrode_mask[electrode_mask != 0])
-    n_atoms = len(electrode_mask)
-    if symm:
-        constraint_matrix = torch.ones([1, n_atoms])
-        constraint_vals = torch.zeros(1)
-    else:
-        constraint_matrix = torch.zeros([0, n_atoms])
-        constraint_vals = torch.zeros(0)
-    if ffield:
-        if not symm:
-            raise KeyError("Finite field only support charge neutral condition")
-
-    return _conp(
-        module,
-        electrode_mask,
-        positions,
-        constraint_matrix,
-        constraint_vals,
-        box,
-        params,
-        method,
-        ffield,
-    )
+#     return charge_opt
 
 
-def _conq(
-    module: PolarisableElectrode,
-    electrode_mask: torch.Tensor,
-    positions: torch.Tensor,
-    constraint_matrix: torch.Tensor,
-    constraint_vals: torch.Tensor,
-    box: Optional[torch.Tensor],
-    params: Dict[str, torch.Tensor],
-    method: Optional[str] = "lbfgs",
-    ffield: Optional[bool] = False,
-) -> torch.Tensor:
-    """
-    Constrained Potential Method implementation
-    An instantiation of QEq Module for electrode systems totally
+# def conp(
+#     module: PolarizableElectrode,
+#     electrode_mask: torch.Tensor,
+#     positions: torch.Tensor,
+#     box: Optional[torch.Tensor],
+#     params: Dict[str, torch.Tensor],
+#     method: Optional[str] = "lbfgs",
+#     symm: bool = True,
+#     ffield: Optional[bool] = False,
+# ) -> torch.Tensor:
+#     """
+#     Lammps like implementation for User which is more convenient
+#     """
+#     # n_electrode_atoms = len(electrode_mask[electrode_mask != 0])
+#     n_atoms = len(electrode_mask)
+#     if symm:
+#         constraint_matrix = torch.ones([1, n_atoms])
+#         constraint_vals = torch.zeros(1)
+#     else:
+#         constraint_matrix = torch.zeros([0, n_atoms])
+#         constraint_vals = torch.zeros(0)
+#     if ffield:
+#         if not symm:
+#             raise KeyError("Finite field only support charge neutral condition")
 
-    The electrode_mask not only contains information about which atoms are electrode atoms,
-    but also the potential(in volt) of the electrode atoms
-    """
-    n_atoms = len(electrode_mask)
-    box = box if box is not None else torch.zeros(3, 3)
-
-    if "chi" not in params:
-        params["chi"] = torch.zeros(n_atoms)
-    if "hardness" not in params:
-        params["hardness"] = torch.zeros(n_atoms)
-
-    electrode_params = {k: v[electrode_mask != 0] for k, v in params.items()}
-    electrode_positions = positions[electrode_mask != 0]
-    charge = params["charge"]
-
-    # calculate pairs
-    nblist = TorchNeighborList(cutoff=module.rcut)
-    pairs = nblist(positions, box)
-    ds = nblist.get_ds()
-    buffer_scales = nblist.get_buffer_scales()
-
-    chi_elec = module.calc_coulomb_potential(
-        electrode_mask,
-        positions,
-        box,
-        params["eta"],
-        params["charge"],
-        pairs,
-        ds,
-        buffer_scales,
-    )
-    chi = params["chi"] + chi_elec
-
-    electrode_params["chi"] = chi[electrode_mask != 0]
-
-    ##Apply the finite field condition
-    if ffield:
-        if module.slab_corr:
-            raise KeyError("Slab correction and finite field cannot be used together")
-
-        raise KeyError("conq with finite field has not been implemented")
-
-    # Neighbor list calculations
-    pairs = nblist(electrode_positions, box)
-    ds = nblist.get_ds()
-    buffer_scales = nblist.get_buffer_scales()
-
-    constraint_matrix = constraint_matrix[:, electrode_mask != 0]
-
-    q0 = charge[electrode_mask != 0].reshape(-1, 1)
-
-    args = [
-        module,
-        q0,
-        electrode_positions,
-        box,
-        electrode_params["chi"],
-        electrode_params["hardness"],
-        electrode_params["eta"],
-        pairs,
-        ds,
-        buffer_scales,
-        constraint_matrix,
-        constraint_vals,
-        None,
-        True,
-        method,
-    ]
-    energy, q_opt = pgrad_optimize(*args)
-    charges = params["charge"].clone()
-    charges[electrode_mask != 0] = q_opt
-    charge_opt = torch.Tensor(charges)
-    charge_opt.requires_grad_(True)
-
-    return charge_opt
+#     return _conp(
+#         module,
+#         electrode_mask,
+#         positions,
+#         constraint_matrix,
+#         constraint_vals,
+#         box,
+#         params,
+#         method,
+#         ffield,
+#     )
 
 
-def conq(
-    module: PolarisableElectrode,
-    electrode_mask: torch.Tensor,
-    positions: torch.Tensor,
-    charge_constraint_dict: Dict[int, torch.Tensor],
-    box: Optional[torch.Tensor],
-    params: Dict[str, torch.Tensor],
-    method: Optional[str] = "lbfgs",
-    ffield: Optional[bool] = False,
-) -> torch.Tensor:
-    """
-    Lammps like implementation for User which is more convenient
-    which also can realize by conp
-    charge_constraint_dict: Dict
-        key is int data correspond to the electrode mask
-        value is the constraint charge value
-    """
-    n_atoms = len(electrode_mask)
-    tolerance = 1e-6
-    if len(charge_constraint_dict) > 2:
-        raise KeyError("Only one or two electrodes are supported Now")
-    if len(charge_constraint_dict) == 1:
-        constraint_matrix = torch.ones([1, n_atoms])
-        constraint_vals = torch.tensor([list(charge_constraint_dict.values())[0]])
-    else:
-        key1 = list(charge_constraint_dict.keys())[0]
-        key2 = list(charge_constraint_dict.keys())[1]
+# def _conq(
+#     module: PolarizableElectrode,
+#     electrode_mask: torch.Tensor,
+#     positions: torch.Tensor,
+#     constraint_matrix: torch.Tensor,
+#     constraint_vals: torch.Tensor,
+#     box: Optional[torch.Tensor],
+#     params: Dict[str, torch.Tensor],
+#     method: Optional[str] = "lbfgs",
+#     ffield: Optional[bool] = False,
+# ) -> torch.Tensor:
+#     """
+#     Constrained Potential Method implementation
+#     An instantiation of QEq Module for electrode systems totally
 
-        row1 = torch.zeros([1, n_atoms])
-        row1[0, torch.abs(electrode_mask - key1) < tolerance] = 1
-        row2 = torch.zeros([1, n_atoms])
-        row2[0, torch.abs(electrode_mask - key2) < tolerance] = 1
+#     The electrode_mask not only contains information about which atoms are electrode atoms,
+#     but also the potential(in volt) of the electrode atoms
+#     """
+#     n_atoms = len(electrode_mask)
+#     box = box if box is not None else torch.zeros(3, 3)
 
-        constraint_matrix = torch.cat([row1, row2], dim=0)
-        constraint_vals = torch.tensor(
-            [
-                [list(charge_constraint_dict.values())[0]],
-                [list(charge_constraint_dict.values())[1]],
-            ]
-        )
-    if ffield:
-        raise KeyError("conq with finite field has not been implemented")
+#     if "chi" not in params:
+#         params["chi"] = torch.zeros(n_atoms)
+#     if "hardness" not in params:
+#         params["hardness"] = torch.zeros(n_atoms)
 
-    return _conq(
-        module,
-        electrode_mask,
-        positions,
-        constraint_matrix,
-        constraint_vals,
-        box,
-        params,
-        method,
-        ffield,
-    )
+#     electrode_params = {k: v[electrode_mask != 0] for k, v in params.items()}
+#     electrode_positions = positions[electrode_mask != 0]
+#     charge = params["charge"]
+
+#     # calculate pairs
+#     nblist = TorchNeighborList(cutoff=module.rcut)
+#     pairs = nblist(positions, box)
+#     ds = nblist.get_ds()
+#     buffer_scales = nblist.get_buffer_scales()
+
+#     chi_elec = module.calc_coulomb_potential(
+#         electrode_mask,
+#         positions,
+#         box,
+#         params["eta"],
+#         params["charge"],
+#         pairs,
+#         ds,
+#         buffer_scales,
+#     )
+#     chi = params["chi"] + chi_elec
+
+#     electrode_params["chi"] = chi[electrode_mask != 0]
+
+#     ##Apply the finite field condition
+#     if ffield:
+#         if module.slab_corr:
+#             raise KeyError("Slab correction and finite field cannot be used together")
+
+#         raise KeyError("conq with finite field has not been implemented")
+
+#     # Neighbor list calculations
+#     pairs = nblist(electrode_positions, box)
+#     ds = nblist.get_ds()
+#     buffer_scales = nblist.get_buffer_scales()
+
+#     constraint_matrix = constraint_matrix[:, electrode_mask != 0]
+
+#     q0 = charge[electrode_mask != 0].reshape(-1, 1)
+
+#     args = [
+#         module,
+#         q0,
+#         electrode_positions,
+#         box,
+#         electrode_params["chi"],
+#         electrode_params["hardness"],
+#         electrode_params["eta"],
+#         pairs,
+#         ds,
+#         buffer_scales,
+#         constraint_matrix,
+#         constraint_vals,
+#         None,
+#         True,
+#         method,
+#     ]
+#     energy, q_opt = pgrad_optimize(*args)
+#     charges = params["charge"].clone()
+#     charges[electrode_mask != 0] = q_opt
+#     charge_opt = torch.Tensor(charges)
+#     charge_opt.requires_grad_(True)
+
+#     return charge_opt
 
 
-def conq_aimd_data(
-    module: PolarisableElectrode,
-    electrode_mask: torch.Tensor,
-    positions: torch.Tensor,
-    box: Optional[torch.Tensor],
-    params: Dict[str, torch.Tensor],
-    method: Optional[str] = "lbfgs",
-) -> torch.Tensor:
-    charge = params["charge"]
-    constraint_vals = torch.sum(charge[electrode_mask == 0]) * -1
-    constraint_matrix = torch.ones([1, len(electrode_mask)])
+# def conq(
+#     module: PolarizableElectrode,
+#     electrode_mask: torch.Tensor,
+#     positions: torch.Tensor,
+#     charge_constraint_dict: Dict[int, torch.Tensor],
+#     box: Optional[torch.Tensor],
+#     params: Dict[str, torch.Tensor],
+#     method: Optional[str] = "lbfgs",
+#     ffield: Optional[bool] = False,
+# ) -> torch.Tensor:
+#     """
+#     Lammps like implementation for User which is more convenient
+#     which also can realize by conp
+#     charge_constraint_dict: Dict
+#         key is int data correspond to the electrode mask
+#         value is the constraint charge value
+#     """
+#     n_atoms = len(electrode_mask)
+#     tolerance = 1e-6
+#     if len(charge_constraint_dict) > 2:
+#         raise KeyError("Only one or two electrodes are supported Now")
+#     if len(charge_constraint_dict) == 1:
+#         constraint_matrix = torch.ones([1, n_atoms])
+#         constraint_vals = torch.tensor([list(charge_constraint_dict.values())[0]])
+#     else:
+#         key1 = list(charge_constraint_dict.keys())[0]
+#         key2 = list(charge_constraint_dict.keys())[1]
 
-    return _conq(
-        module=module,
-        electrode_mask=electrode_mask,
-        positions=positions,
-        constraint_matrix=constraint_matrix,
-        constraint_vals=constraint_vals,
-        box=box,
-        params=params,
-        method=method,
-        ffield=False,
-    )
+#         row1 = torch.zeros([1, n_atoms])
+#         row1[0, torch.abs(electrode_mask - key1) < tolerance] = 1
+#         row2 = torch.zeros([1, n_atoms])
+#         row2[0, torch.abs(electrode_mask - key2) < tolerance] = 1
+
+#         constraint_matrix = torch.cat([row1, row2], dim=0)
+#         constraint_vals = torch.tensor(
+#             [
+#                 [list(charge_constraint_dict.values())[0]],
+#                 [list(charge_constraint_dict.values())[1]],
+#             ]
+#         )
+#     if ffield:
+#         raise KeyError("conq with finite field has not been implemented")
+
+#     return _conq(
+#         module,
+#         electrode_mask,
+#         positions,
+#         constraint_matrix,
+#         constraint_vals,
+#         box,
+#         params,
+#         method,
+#         ffield,
+#     )
+
+
+# def conq_aimd_data(
+#     module: PolarizableElectrode,
+#     electrode_mask: torch.Tensor,
+#     positions: torch.Tensor,
+#     box: Optional[torch.Tensor],
+#     params: Dict[str, torch.Tensor],
+#     method: Optional[str] = "lbfgs",
+# ) -> torch.Tensor:
+#     charge = params["charge"]
+#     constraint_vals = torch.sum(charge[electrode_mask == 0]) * -1
+#     constraint_matrix = torch.ones([1, len(electrode_mask)])
+
+#     return _conq(
+#         module=module,
+#         electrode_mask=electrode_mask,
+#         positions=positions,
+#         constraint_matrix=constraint_matrix,
+#         constraint_vals=constraint_vals,
+#         box=box,
+#         params=params,
+#         method=method,
+#         ffield=False,
+#     )
 
 
 @torch.jit.script
@@ -529,6 +528,9 @@ def setup_from_lammps(
     constraint_list: List[LAMMPSElectrodeConstraint],
     symm: bool = False,
 ):
+    """
+    Generate input data based on lammps-like constraint definitions
+    """
     mask = np.zeros(n_atoms, dtype=bool)
 
     eta = np.zeros(n_atoms)
@@ -547,7 +549,9 @@ def setup_from_lammps(
         hardness[constraint.indices] = constraint.hardness
         if constraint.mode == "conq":
             if symm:
-                raise AttributeError("symm should be False for conq, user can implement symm by conq")
+                raise AttributeError(
+                    "symm should be False for conq, user can implement symm by conq"
+                )
             if constraint.ffield:
                 raise AttributeError("ffield with conq has not been implemented yet")
             constraint_matrix.append(np.zeros((1, n_atoms)))
@@ -651,7 +655,7 @@ def finite_field_add_chi_new(
 
 
 def infer(
-    calculator: PolarisableElectrode,
+    calculator: PolarizableElectrode,
     positions: torch.Tensor,
     box: torch.Tensor,
     charges: torch.Tensor,
@@ -668,7 +672,7 @@ def infer(
     ffield_potential: Optional[torch.Tensor],
     method: str = "lbfgs",
 ):
-    _q_opt, efield = charge_optimisation(
+    _q_opt, efield = charge_optimization(
         calculator,
         positions,
         box,
@@ -704,8 +708,8 @@ def infer(
     return energy, forces, q_opt
 
 
-def charge_optimisation(
-    calculator: PolarisableElectrode,
+def charge_optimization(
+    calculator: PolarizableElectrode,
     positions: torch.Tensor,
     box: torch.Tensor,
     charges: torch.Tensor,
@@ -722,6 +726,9 @@ def charge_optimisation(
     ffield_potential: Optional[torch.Tensor],
     method: str = "lbfgs",
 ):
+    """
+    Perform QEq charge optimization
+    """
     # ffield mode
     if ffield_electrode_mask is not None:
         assert not calculator.slab_corr, KeyError(
@@ -768,23 +775,33 @@ def charge_optimisation(
     pair_j = pairs[pair_mask][:, 1]
     new_pairs = torch.stack([mapping[pair_i], mapping[pair_j]], dim=1)
 
-    args = [
-        calculator,
-        charges[electrode_mask].reshape(-1, 1),
-        positions[electrode_mask],
-        box,
-        chi,
-        hardness[electrode_mask],
-        eta[electrode_mask],
-        new_pairs,
-        ds[pair_mask],
-        buffer_scales[pair_mask],
-        constraint_matrix,
-        constraint_vals,
-        None,
-        True,
-        method,
-    ]
-    _energy, _q_opt = pgrad_optimize(*args)
-    # _energy, _q_opt = matinv_optimize(*args)
+    # common var & for matrix inversion
+    kwargs = {
+        "module": calculator,
+        "positions": positions[electrode_mask],
+        "box": box,
+        "chi": chi,
+        "hardness": hardness[electrode_mask],
+        "eta": eta[electrode_mask],
+        "pairs": new_pairs,
+        "ds": ds[pair_mask],
+        "buffer_scales": buffer_scales[pair_mask],
+        "constraint_matrix": constraint_matrix,
+        "constraint_vals": constraint_vals,
+    }
+
+    if method == "matinv":
+        _energy, _q_opt = matinv_optimize(**kwargs)
+    else:
+        # projected gradient
+        kwargs.update(
+            {
+                "q0": charges[electrode_mask].reshape(-1, 1),
+                "method": method,
+                "reinit_q": True,
+            }
+        )
+
+        _energy, _q_opt = pgrad_optimize(**kwargs)
+
     return _q_opt, efield
