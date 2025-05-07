@@ -178,7 +178,6 @@ def sort_pairs(pairs: torch.Tensor) -> torch.Tensor:
     return sorted_pairs
 
 
-# todo: fix bug or deprecated this class (for crossing-boundary images)
 class TorchNeighborList(torch.nn.Module):
     """
     Adapt from below code for jitable:
@@ -215,6 +214,7 @@ class TorchNeighborList(torch.nn.Module):
             pairs = self.forward_obc(positions)
             pbc_flag = False
         else:
+            check_cutoff(box, self.cutoff)
             pairs = self.forward_pbc(positions, box)
             pbc_flag = True
 
@@ -379,3 +379,30 @@ class TorchNeighborList(torch.nn.Module):
 
     def get_ds(self) -> torch.Tensor:
         return self.ds
+
+
+def check_cutoff(box: torch.Tensor, cutoff: float) -> None:
+    """
+    Check whether the sphere of cutoff radius is inside the box.
+    """
+    # Get the three cell vectors a1, a2, a3
+    a1, a2, a3 = box[0], box[1], box[2]
+
+    # Compute normals to the three faces
+    normals = torch.stack(
+        [torch.cross(a2, a3), torch.cross(a3, a1), torch.cross(a1, a2)]
+    )  # shape (3, 3)
+
+    # Normalize normals
+    unit_normals = normals / torch.norm(normals, dim=1, keepdim=True)
+
+    # Heights from origin to the faces (dot of ai with corresponding normal)
+    heights = torch.abs(torch.einsum("ij,ij->i", box, unit_normals))  # shape (3,)
+
+    # Minimum half-height (distance from origin to nearest face along normal direction)
+    min_half_height = torch.min(heights) / 2
+
+    assert cutoff <= min_half_height, (
+        f"Cutoff {cutoff} is larger than half the minimum height {min_half_height} of the box. "
+        "This may lead to unphysical results."
+    )
