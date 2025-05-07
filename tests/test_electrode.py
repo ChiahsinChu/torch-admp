@@ -1,34 +1,36 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
+import csv
 import unittest
 from pathlib import Path
 
 import numpy as np
 import torch
 from ase import io
-import csv
+
 from torch_admp.electrode import (
     LAMMPSElectrodeConstraint,
-    PolarisableElectrode,
+    PolarizableElectrode,
     infer,
     setup_from_lammps,
 )
-from torch_admp.nblist import TorchNeighborList
+
+from torch_admp.nblist import vesin_nblist
 from torch_admp.utils import to_numpy_array
 
-'''
+"""
 class LAMMPSReferenceDataTest:
     def test(self) -> None:
         rcut = 5.0
         ethresh = 1e-6
         kappa = 0.5
         slab_factor = 3.0
-        self.calculator = PolarisableElectrode(rcut=rcut, ethresh=ethresh, kappa=kappa,slab_corr=self.slab_corr)
+        self.calculator = PolarizableElectrode(rcut=rcut, ethresh=ethresh, kappa=kappa,slab_corr=self.slab_corr)
 
         self.ref_charges = self.atoms.get_initial_charges()
         self.ref_forces = self.atoms.get_forces()
 
         self.positions = torch.tensor(self.atoms.get_positions(), requires_grad=True)
-        
+
         cell = self.atoms.cell.array
         if self.slab_corr:
             cell[2, 2] *= slab_factor
@@ -99,20 +101,24 @@ class TestConpSlab3D(LAMMPSReferenceDataTest, unittest.TestCase):
             ],
             True,
         )
-'''
+"""
+
+
 class LAMMPSReferenceDataTest:
     def test(self) -> None:
         rcut = 5.0
         ethresh = 1e-6
         kappa = 0.5
         slab_factor = 3.0
-        self.calculator = PolarisableElectrode(rcut=rcut, ethresh=ethresh, kappa=kappa, slab_corr=self.slab_corr)
+        self.calculator = PolarizableElectrode(
+            rcut=rcut, ethresh=ethresh, kappa=kappa, slab_corr=self.slab_corr
+        )
 
         self.ref_charges = self.atoms.get_initial_charges()
         self.ref_forces = self.atoms.get_forces()
 
         self.positions = torch.tensor(self.atoms.get_positions(), requires_grad=True)
-        
+
         cell = self.atoms.cell.array
         if self.slab_corr:
             cell[2, 2] *= slab_factor
@@ -123,10 +129,9 @@ class LAMMPSReferenceDataTest:
             self.atoms.get_initial_charges(), requires_grad=True
         )
 
-        nblist = TorchNeighborList(cutoff=rcut)
-        self.pairs = nblist(self.positions, self.box)
-        self.ds = nblist.get_ds()
-        self.buffer_scales = nblist.get_buffer_scales()
+        self.pairs, self.ds, self.buffer_scales = vesin_nblist(
+            self.positions, self.box, rcut=rcut
+        )
 
         # energy, forces, q_opt
         test_output = infer(
@@ -148,7 +153,10 @@ class LAMMPSReferenceDataTest:
             print("RMSE exceeds threshold:", rmse)
             print("Differences in forces:\n", diff)
             self._write_csv(diff, "force_differences.csv")
-        self.assertTrue(rmse < 1e-5, f"RMSE exceeds threshold: {rmse}\nDifferences in forces:\n{diff}")
+        self.assertTrue(
+            rmse < 1e-5,
+            f"RMSE exceeds threshold: {rmse}\nDifferences in forces:\n{diff}",
+        )
 
         # max deviation
         if not np.allclose(to_numpy_array(test_output[1]), self.ref_forces, atol=1e-4):
@@ -162,16 +170,17 @@ class LAMMPSReferenceDataTest:
                 self.ref_forces,
                 atol=1e-4,
             ),
-            "Forces do not match within tolerance of 1e-4"
+            "Forces do not match within tolerance of 1e-4",
         )
 
     def _write_csv(self, data, filename):
         """Write the differences to a CSV file."""
-        with open(filename, mode='a', newline='') as file:
+        with open(filename, mode="a", newline="") as file:
             writer = csv.writer(file)
             writer.writerow(["Index", "Difference"])
             for i, diff in enumerate(data):
                 writer.writerow([i, diff])
+
 
 class TestConpSlab2D(LAMMPSReferenceDataTest, unittest.TestCase):
     def setUp(self) -> None:
@@ -198,10 +207,10 @@ class TestConpSlab2D(LAMMPSReferenceDataTest, unittest.TestCase):
                     eta=1.6,
                     ffield=False,
                 ),
-                
             ],
             True,
         )
+
 
 class TestConpInterface3DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
     def setUp(self) -> None:
@@ -229,10 +238,10 @@ class TestConpInterface3DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
                     eta=1.6,
                     ffield=True,
                 ),
-
             ],
             True,
         )
+
 
 class TestConpInterface3DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
     def setUp(self) -> None:
@@ -263,6 +272,7 @@ class TestConpInterface3DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
             True,
         )
 
+
 class TestConpInterface2DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
     def setUp(self) -> None:
         self.atoms = io.read(
@@ -288,10 +298,11 @@ class TestConpInterface2DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
                     eta=1.6,
                     ffield=False,
                 ),
-
             ],
             True,
         )
+
+
 class TestConpInterface2DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
     def setUp(self) -> None:
         self.atoms = io.read(
@@ -321,6 +332,7 @@ class TestConpInterface2DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
             True,
         )
 
+
 class TestConqInterface2DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
     def setUp(self) -> None:
         self.atoms = io.read(
@@ -341,6 +353,7 @@ class TestConqInterface2DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
                 ),
             ],
         )
+
 
 class TestConqInterface2DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
     def setUp(self) -> None:
@@ -370,6 +383,7 @@ class TestConqInterface2DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
             ],
         )
 
+
 class TestConqInterface2DEDL(LAMMPSReferenceDataTest, unittest.TestCase):
     def setUp(self) -> None:
         self.atoms = io.read(
@@ -390,6 +404,7 @@ class TestConqInterface2DEDL(LAMMPSReferenceDataTest, unittest.TestCase):
                 ),
             ],
         )
+
 
 class TestConqInterface3DEDL(LAMMPSReferenceDataTest, unittest.TestCase):
     def setUp(self) -> None:
@@ -412,12 +427,13 @@ class TestConqInterface3DEDL(LAMMPSReferenceDataTest, unittest.TestCase):
             ],
         )
 
+
 class TestConqInterface3DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
     def setUp(self) -> None:
         self.atoms = io.read(
             Path(__file__).parent / "data/lmp_conq_interface_3d_bias/dump.lammpstrj"
         )
-        self.ref_energy = -1648.7002 
+        self.ref_energy = -1648.7002
         self.slab_corr = False
         # mask, eta, chi, hardness, constraint_matrix, constraint_vals, ffield_electrode_mask, ffield_potential
         self.input_data = setup_from_lammps(
@@ -440,12 +456,13 @@ class TestConqInterface3DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
             ],
         )
 
+
 class TestConqInterface3DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
     def setUp(self) -> None:
         self.atoms = io.read(
             Path(__file__).parent / "data/lmp_conq_interface_3d_pzc/dump.lammpstrj"
         )
-        self.ref_energy = -1943.6583 
+        self.ref_energy = -1943.6583
         self.slab_corr = False
         # mask, eta, chi, hardness, constraint_matrix, constraint_vals, ffield_electrode_mask, ffield_potential
         self.input_data = setup_from_lammps(
@@ -460,5 +477,7 @@ class TestConqInterface3DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
                 ),
             ],
         )
+
+
 if __name__ == "__main__":
     unittest.main()
