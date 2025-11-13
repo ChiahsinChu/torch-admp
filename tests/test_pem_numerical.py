@@ -7,7 +7,7 @@ import torch
 from ase import io
 from scipy import constants
 
-from torch_admp.electrode import PolarisableElectrode, conp, conq, conq_aimd_data
+from torch_admp.electrode import PolarizableElectrode, conp, conq, conq_aimd_data
 from torch_admp.nblist import TorchNeighborList
 from torch_admp.utils import to_numpy_array
 
@@ -114,7 +114,7 @@ class TestPEMModule(unittest.TestCase):
 
     def _create_pem_module(self, slab_corr=False):
         """Create PEM module and Coulomb model"""
-        module = PolarisableElectrode(
+        module = PolarizableElectrode(
             rcut=self.rcut,
             ethresh=self.ethresh,
             kspace=True,
@@ -122,7 +122,7 @@ class TestPEMModule(unittest.TestCase):
             slab_corr=slab_corr,
             slab_axis=2,
         )
-        self.module_pgrad = PolarisableElectrode(
+        self.module_pgrad = PolarizableElectrode(
             self.rcut, self.ethresh, eps=1e-5, max_iter=100
         )
 
