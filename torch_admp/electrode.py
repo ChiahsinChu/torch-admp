@@ -425,6 +425,9 @@ def charge_optimization(
     """
     Perform QEq charge optimization
     """
+    if electrode_mask.sum() == 0:
+        efield = None
+        return charges[electrode_mask], efield
     # ffield mode
     if ffield_electrode_mask is not None:
         assert not calculator.slab_corr, KeyError(
