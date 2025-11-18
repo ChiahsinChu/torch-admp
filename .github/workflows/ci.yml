@@ -25,6 +25,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install deepmd-kit[torch] # dp_nblist UT
           pip install .[test]  # Install package with test dependencies
+
       - name: Test with pytest
         run: |
           pytest --cov --junitxml=junit.xml --cov-report=xml
