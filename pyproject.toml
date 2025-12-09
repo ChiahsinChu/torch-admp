@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "torch_admp"
-version = "1.0"
+version = "1.1.0a"
 description = "ADMP in PyTorch backend"
 readme = "README.md"
 license = { file = ".license-header.txt" }
@@ -31,7 +31,17 @@ test = [
     "freud-analysis==3.0.0",
     "DMFF @ git+https://github.com/ChiahsinChu/DMFF.git@devel",
 ]
-docs = ["sphinx", "sphinx-rtd-theme"]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.0.0",
+    "mkdocstrings[python]>=0.20.0",
+    "mkdocs-glightbox>=0.3.0",
+    "pymdown-extensions>=10.0.0",
+    "mkdocs-git-revision-date-localized-plugin>=1.2.0",
+    "mkdocs-awesome-pages-plugin>=2.8.0",
+    "mkdocs-gen-files>=0.5.0",
+    "griffe>=0.48.0"
+]
 
 [tool.setuptools]
 packages = ["torch_admp"]

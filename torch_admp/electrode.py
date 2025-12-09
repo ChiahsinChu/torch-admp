@@ -18,25 +18,8 @@ class PolarizableElectrode(QEqForceModule):
         cutoff radius for short-range interactions
     ethresh : float, optional
         energy threshold for electrostatic interaction, by default 1e-5
-    kspace: bool
-        whether the reciprocal part is included
-    rspace: bool
-        whether the real space part is included
-    slab_corr: bool
-        whether the slab correction is applied
-        ≈
-        axis at which the slab correction is applied
-    max_iter: int, optional
-        maximum number of iterations for optimization, by default 20
-        only used for projected gradient method
-    ls_eps: float, optional
-        threshold for line search, by default 1e-4
-        only used for projected gradient method
-    eps: float, optional
-        threshold for convergence, by default 1e-4
-        only used for projected gradient method
-    units_dict: Dict, optional
-        dictionary of units, by default None
+    **kwargs : dict
+        Additional keyword arguments passed to parent class
     """
 
     def __init__(self, rcut: float, ethresh: float = 1e-5, **kwargs) -> None:
@@ -812,3 +795,4 @@ def conq_aimd_data(
         method=method,
         ffield=False,
     )
+

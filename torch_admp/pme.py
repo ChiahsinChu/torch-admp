@@ -258,7 +258,7 @@ class CoulombForceModule(BaseForceModule):
         self,
         charges: torch.Tensor,
     ) -> torch.Tensor:
-        """
+        r"""
         -\frac{\alpha}{\sqrt{\pi}} \sum_{i} q_i^2
         """
         if self.kspace_flag:
@@ -291,7 +291,7 @@ class CoulombForceModule(BaseForceModule):
         box: torch.Tensor,
         ds: torch.Tensor,
     ) -> torch.Tensor:
-        """
+        r"""
         Slab correction energy (ref: 10.1063/1.3216473)
 
         E = \frac{2\pi}{V} \varepsilon \left( M_z^2 - Q_{\text{tot}} \sum_i q_i z_i + \frac{Q_{\text{tot}}^2 L_z^2}{12} \right)

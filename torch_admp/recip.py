@@ -272,7 +272,7 @@ def setup_kpts(box_inv, kpts_int):
     This function sets up the k-points used for reciprocal space calculations
 
     Input:
-        box:
+        box_inv:
             3 * 3, three axis arranged in rows
         kpts_int:
             n_k * 3 matrix
