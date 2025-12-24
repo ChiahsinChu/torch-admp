@@ -1,12 +1,18 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 import unittest
 
-import jax
-import jax.numpy as jnp
 import numpy as np
 import torch
-from dmff.admp.qeq import E_site3, E_sr3
 from scipy import constants
+
+try:
+    import jax
+    import jax.numpy as jnp
+    from dmff.admp.qeq import E_site3, E_sr3
+
+    DMFF_AVAILABLE = True
+except ImportError:
+    DMFF_AVAILABLE = False
 
 from torch_admp.nblist import TorchNeighborList
 from torch_admp.qeq import (
@@ -21,11 +27,6 @@ from torch_admp.utils import (
     to_numpy_array,
     vector_projection_coeff_matrix,
 )
-
-# @jit_condition()
-# def E_site3(chi, J, q):
-#     ene = chi * q +  J* q**2  # kj/mol
-#     return jnp.sum(ene)
 
 
 class JaxTestData:
@@ -48,6 +49,7 @@ class JaxTestData:
         self.energy_coeff = j2ev * constants.kilo / constants.Avogadro
 
 
+@unittest.skipIf(not DMFF_AVAILABLE, "dmff package not installed")
 class TestGaussianDampingForceModule(unittest.TestCase, JaxTestData):
     def setUp(self) -> None:
         JaxTestData.__init__(self)
@@ -96,6 +98,7 @@ class TestGaussianDampingForceModule(unittest.TestCase, JaxTestData):
         self.assertTrue(np.abs(diff).max() < 5e-4)
 
 
+@unittest.skipIf(not DMFF_AVAILABLE, "dmff package not installed")
 class TestSiteForceModule(unittest.TestCase, JaxTestData):
     def setUp(self) -> None:
         JaxTestData.__init__(self)
@@ -134,6 +137,7 @@ class TestSiteForceModule(unittest.TestCase, JaxTestData):
         self.assertAlmostEqual(ener_pt.item(), ener_jax, places=5)
 
 
+@unittest.skipIf(not DMFF_AVAILABLE, "dmff package not installed")
 class TestQEqForceModule(unittest.TestCase):
     """
     self consistent test (matrix inversion vs pgrad)
