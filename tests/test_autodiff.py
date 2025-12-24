@@ -1,4 +1,10 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
+"""Tests for automatic differentiation functionality in torch-admp.
+
+This module contains tests to verify the correctness of gradient calculations
+using finite difference methods compared to automatic differentiation.
+"""
+
 import unittest
 
 import numpy as np
@@ -15,6 +21,25 @@ dtype = torch.float64
 
 
 def finite_difference(f, x, delta=1e-6):
+    """Calculate finite difference gradient of a function.
+
+    This function computes the gradient of function f at point x using
+    the central finite difference method.
+
+    Parameters
+    ----------
+    f : callable
+        Function to differentiate
+    x : np.ndarray
+        Input tensor at which to compute gradient
+    delta : float, optional
+        Step size for finite difference approximation, by default 1e-6
+
+    Returns
+    -------
+    np.ndarray
+        Gradient computed using finite differences
+    """
     in_shape = x.shape
     y0 = f(x)
     out_shape = y0.shape
@@ -29,6 +54,24 @@ def finite_difference(f, x, delta=1e-6):
 
 
 def data_generator(natoms: int, l_box: float):
+    """Generate test data for autodiff testing.
+
+    Creates random atomic positions and box vectors for testing
+    gradient calculations.
+
+    Parameters
+    ----------
+    natoms : int
+        Number of atoms to generate
+    l_box : float
+        Length of the simulation box
+
+    Returns
+    -------
+    tuple
+        (generator, input_dict) containing the random generator
+        and input dictionary with positions, box, and placeholder data
+    """
     generator = torch.Generator(device=env.DEVICE).manual_seed(SEED)
     box = torch.rand([3, 3], device=env.DEVICE, dtype=dtype, generator=generator)
     box = (box + box.T) + l_box * torch.eye(3)
@@ -56,9 +99,21 @@ def data_generator(natoms: int, l_box: float):
 
 
 class FDTest:
+    """Test class for finite difference gradient verification.
+
+    This class provides a generic test method to compare gradients
+    computed using finite differences with those from automatic differentiation.
+    """
+
     def test(
         self,
     ) -> None:
+        """Test gradient accuracy using finite difference comparison.
+
+        Compares gradients computed by automatic differentiation with
+        those computed using finite difference approximation for both
+        positions and box parameters.
+        """
         places = 5
         delta = 1e-5
 
@@ -80,7 +135,19 @@ class FDTest:
 
 
 class TestGradCoulombForceModule(unittest.TestCase, FDTest):
+    """Test gradient calculations for CoulombForceModule.
+
+    This test class verifies that gradients computed by the CoulombForceModule
+    match finite difference approximations, ensuring correct implementation
+    of automatic differentiation for electrostatic interactions.
+    """
+
     def setUp(self):
+        """Set up test data and CoulombForceModule for gradient testing.
+
+        Initializes random atomic positions, box vectors, and charges,
+        and creates a CoulombForceModule instance for testing.
+        """
         natoms = 100
         l_box = 10.0
 

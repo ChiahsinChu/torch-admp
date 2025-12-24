@@ -1,4 +1,11 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
+"""Tests for JIT compilation functionality in torch-admp.
+
+This module contains tests to verify that torch-admp modules can be
+successfully compiled with TorchScript JIT and produce identical results
+to their non-JIT counterparts.
+"""
+
 import os
 import unittest
 
@@ -20,9 +27,20 @@ n_atoms = 100
 
 
 class JITTest:
+    """Test class for JIT compilation verification.
+
+    This class provides a generic test method to compare results from
+    JIT-compiled modules with their non-JIT counterparts.
+    """
+
     def test(
         self,
     ):
+        """Test JIT compilation produces identical results.
+
+        Compares energy and gradient outputs from JIT-compiled modules
+        with those from regular PyTorch modules to ensure correctness.
+        """
         positions = np.random.rand(n_atoms, 3) * l_box
         if self.periodic:
             box = np.diag([l_box, l_box, l_box])
@@ -77,33 +95,72 @@ class JITTest:
         torch.jit.save(self.jit_module, "./frozen_model.pth", {})
 
     def tearDown(self):
+        """Clean up test artifacts.
+
+        Removes any model files created during testing.
+        """
         for f in os.listdir("."):
             if f == "frozen_model.pth":
                 os.remove(f)
 
 
 class TestOBCCoulombForceModule(unittest.TestCase, JITTest):
+    """Test JIT compilation for CoulombForceModule with open boundary conditions.
+
+    Tests that the CoulombForceModule can be JIT-compiled and produces
+    identical results when using open boundary conditions.
+    """
+
     def setUp(self):
+        """Set up test for OBC CoulombForceModule JIT compilation.
+
+        Initializes the module with open boundary conditions and creates
+        a JIT-compiled version for testing.
+        """
         self.periodic = False
         self.module = CoulombForceModule(rcut=rcut, ethresh=ethresh)
         self.jit_module = torch.jit.script(self.module)
 
     def tearDown(self):
+        """Clean up test artifacts."""
         JITTest.tearDown(self)
 
 
 class TestPBCCoulombForceModule(unittest.TestCase, JITTest):
+    """Test JIT compilation for CoulombForceModule with periodic boundary conditions.
+
+    Tests that the CoulombForceModule can be JIT-compiled and produces
+    identical results when using periodic boundary conditions.
+    """
+
     def setUp(self):
+        """Set up test for PBC CoulombForceModule JIT compilation.
+
+        Initializes the module with periodic boundary conditions and creates
+        a JIT-compiled version for testing.
+        """
         self.periodic = True
         self.module = CoulombForceModule(rcut=rcut, ethresh=ethresh)
         self.jit_module = torch.jit.script(self.module)
 
     def tearDown(self):
+        """Clean up test artifacts."""
         JITTest.tearDown(self)
 
 
 class TestSlabCorrXForceModule(unittest.TestCase, JITTest):
+    """Test JIT compilation for CoulombForceModule with X-axis slab correction.
+
+    Tests that the CoulombForceModule can be JIT-compiled and produces
+    identical results when using slab correction along the X-axis.
+    """
+
     def setUp(self):
+        """Set up test for X-axis slab correction CoulombForceModule JIT compilation.
+
+        Initializes the module with X-axis slab correction and creates
+        a JIT-compiled version for testing.
+        """
         self.periodic = True
         self.module = CoulombForceModule(
             rcut=rcut,
@@ -114,11 +171,23 @@ class TestSlabCorrXForceModule(unittest.TestCase, JITTest):
         self.jit_module = torch.jit.script(self.module)
 
     def tearDown(self):
+        """Clean up test artifacts."""
         JITTest.tearDown(self)
 
 
 class TestSlabCorrYForceModule(unittest.TestCase, JITTest):
+    """Test JIT compilation for CoulombForceModule with Y-axis slab correction.
+
+    Tests that the CoulombForceModule can be JIT-compiled and produces
+    identical results when using slab correction along the Y-axis.
+    """
+
     def setUp(self):
+        """Set up test for Y-axis slab correction CoulombForceModule JIT compilation.
+
+        Initializes the module with Y-axis slab correction and creates
+        a JIT-compiled version for testing.
+        """
         self.periodic = True
         self.module = CoulombForceModule(
             rcut=rcut,
@@ -129,11 +198,23 @@ class TestSlabCorrYForceModule(unittest.TestCase, JITTest):
         self.jit_module = torch.jit.script(self.module)
 
     def tearDown(self):
+        """Clean up test artifacts."""
         JITTest.tearDown(self)
 
 
 class TestSlabCorrZForceModule(unittest.TestCase, JITTest):
+    """Test JIT compilation for CoulombForceModule with Z-axis slab correction.
+
+    Tests that the CoulombForceModule can be JIT-compiled and produces
+    identical results when using slab correction along the Z-axis.
+    """
+
     def setUp(self):
+        """Set up test for Z-axis slab correction CoulombForceModule JIT compilation.
+
+        Initializes the module with Z-axis slab correction and creates
+        a JIT-compiled version for testing.
+        """
         self.periodic = True
         self.module = CoulombForceModule(
             rcut=rcut,
@@ -144,31 +225,65 @@ class TestSlabCorrZForceModule(unittest.TestCase, JITTest):
         self.jit_module = torch.jit.script(self.module)
 
     def tearDown(self):
+        """Clean up test artifacts."""
         JITTest.tearDown(self)
 
 
 class TestGaussianDampingForceModule(unittest.TestCase, JITTest):
+    """Test JIT compilation for GaussianDampingForceModule.
+
+    Tests that the GaussianDampingForceModule can be JIT-compiled and produces
+    identical results to its non-JIT counterpart.
+    """
+
     def setUp(self):
+        """Set up test for GaussianDampingForceModule JIT compilation.
+
+        Initializes the module and creates a JIT-compiled version for testing.
+        """
         self.periodic = True
         self.module = GaussianDampingForceModule()
         self.jit_module = torch.jit.script(self.module)
 
     def tearDown(self):
+        """Clean up test artifacts."""
         JITTest.tearDown(self)
 
 
 class TestSiteForceModule(unittest.TestCase, JITTest):
+    """Test JIT compilation for SiteForceModule.
+
+    Tests that the SiteForceModule can be JIT-compiled and produces
+    identical results to its non-JIT counterpart.
+    """
+
     def setUp(self):
+        """Set up test for SiteForceModule JIT compilation.
+
+        Initializes the module and creates a JIT-compiled version for testing.
+        """
         self.periodic = True
         self.module = SiteForceModule()
         self.jit_module = torch.jit.script(self.module)
 
     def tearDown(self):
+        """Clean up test artifacts."""
         JITTest.tearDown(self)
 
 
 class TestQEqForceModule(unittest.TestCase, JITTest):
+    """Test JIT compilation for QEqForceModule.
+
+    Tests that the QEqForceModule can be JIT-compiled and produces
+    identical results to its non-JIT counterpart.
+    """
+
     def setUp(self):
+        """Set up test for QEqForceModule JIT compilation.
+
+        Initializes the module with specified cutoff and error threshold,
+        and creates a JIT-compiled version for testing.
+        """
         self.periodic = True
         self.module = QEqForceModule(
             rcut=rcut,
@@ -177,6 +292,7 @@ class TestQEqForceModule(unittest.TestCase, JITTest):
         self.jit_module = torch.jit.script(self.module)
 
     def tearDown(self):
+        """Clean up test artifacts."""
         JITTest.tearDown(self)
 
 

@@ -1,4 +1,11 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
+"""Tests for polarizable electrode model (PEM) functionality in torch-admp.
+
+This module contains tests to verify the correctness of polarizable electrode
+simulations, including constant potential (CONP) and constant charge (CONQ)
+simulations, with comparisons against LAMMPS reference data.
+"""
+
 import unittest
 from pathlib import Path
 
@@ -27,17 +34,32 @@ torch.set_default_dtype(torch.float64)
 
 
 class TestPEMModule(unittest.TestCase):
-    """Test PEM module functionality by comparing with LAMMPS reference results"""
+    """Test PEM module functionality by comparing with LAMMPS reference results.
+
+    This test class verifies that torch-admp's polarizable electrode model
+    produces results consistent with LAMMPS simulations.
+    """
 
     def setUp(self) -> None:
-        """Set up basic test parameters"""
+        """Set up basic test parameters.
+
+        Initializes model parameters and data paths for testing.
+        """
         # Model parameters
         self.rcut = 6.0
         self.ethresh = 1e-6
         self.data_root = Path(__file__).parent / "data/pem"
 
     def _write_csv(self, filename, data_dict):
-        """Output CSV file to compare data (optional)"""
+        """Output CSV file to compare data (optional).
+
+        Parameters
+        ----------
+        filename : str
+            Name of the CSV file to write
+        data_dict : dict
+            Dictionary containing data to write to CSV
+        """
         if not OUTPUT_CSV:
             return
 
@@ -53,7 +75,18 @@ class TestPEMModule(unittest.TestCase):
             writer.writerows(rows)
 
     def _load_pem_test_data(self, data_path):
-        """Load PEM test data"""
+        """Load PEM test data.
+
+        Parameters
+        ----------
+        data_path : str
+            Path to the test data file
+
+        Notes
+        -----
+        Loads atomic positions, box, and charges from the specified data file
+        and sets up neighbor list and electrode parameters for testing.
+        """
         atoms = io.read(
             str(self.data_root / data_path),
             format="lammps-data",
@@ -104,7 +137,13 @@ class TestPEMModule(unittest.TestCase):
         self.hardness = torch.full_like(self.charges, 0)
 
     def _get_params_dict(self):
-        """Get parameters dictionary"""
+        """Get parameters dictionary.
+
+        Returns
+        -------
+        dict
+            Dictionary containing charge, chi, hardness, and eta parameters
+        """
         return {
             "charge": self.charges,
             "chi": self.chi,
@@ -113,7 +152,18 @@ class TestPEMModule(unittest.TestCase):
         }
 
     def _create_pem_module(self, slab_corr=False):
-        """Create PEM module and Coulomb model"""
+        """Create PEM module and Coulomb model.
+
+        Parameters
+        ----------
+        slab_corr : bool, optional
+            Whether to enable slab correction, by default False
+
+        Returns
+        -------
+        PolarizableElectrode
+            Configured PEM module for testing
+        """
         module = PolarizableElectrode(
             rcut=self.rcut,
             ethresh=self.ethresh,
@@ -129,7 +179,18 @@ class TestPEMModule(unittest.TestCase):
         return module
 
     def _calculate_forces(self, module):
-        """Calculate force field forces"""
+        """Calculate force field forces.
+
+        Parameters
+        ----------
+        module : PolarizableElectrode
+            PEM module to use for force calculation
+
+        Returns
+        -------
+        torch.Tensor
+            Forces calculated by the module
+        """
         nblist = TorchNeighborList(cutoff=module.rcut)
         pairs = nblist(self.positions, self.box)
         ds = nblist.get_ds()
@@ -158,8 +219,7 @@ class TestPEMModule(unittest.TestCase):
         tol_charge=1e-4,
         applied_potential=None,
     ):
-        """
-        Verify if results match reference values within tolerance.
+        """Verify if results match reference values within tolerance.
 
         Parameters
         ----------
@@ -171,12 +231,17 @@ class TestPEMModule(unittest.TestCase):
             Calculated charges to verify
         ref_charges : torch.Tensor, optional
             Reference charges to compare against
-        tol_force : float, default=1e-3
+        tol_force : float, default=1e-4
             Tolerance for force comparisons
-        tol_charge : float, default=1e-3
+        tol_charge : float, default=1e-4
             Tolerance for charge comparisons
         applied_potential : list, optional
             Applied electrode potentials [V_left, V_right]
+
+        Notes
+        -----
+        This method provides detailed comparison information when results
+        don't match within the specified tolerances.
         """
         # Convert forces to numpy arrays for comparison
         forces_np = to_numpy_array(forces).reshape(-1, 3)
@@ -280,7 +345,19 @@ class TestPEMModule(unittest.TestCase):
             print("\n ALL VERIFICATIONS PASSED SUCCESSFULLY \n")
 
     def _run_pem_test(self, data_subdir, lammpstrj_name, potential, test_name):
-        """Generic method to run PEM tests"""
+        """Generic method to run PEM tests.
+
+        Parameters
+        ----------
+        data_subdir : str
+            Subdirectory containing test data
+        lammpstrj_name : str
+            Name of the LAMMPS trajectory file
+        potential : list
+            Applied electrode potentials [V_left, V_right]
+        test_name : str
+            Name of the test for output files
+        """
         print(f"Testing {test_name}")
 
         # Load test data
@@ -359,7 +436,11 @@ class TestPEMModule(unittest.TestCase):
         )
 
     def test_far(self):
-        """Test constant potential simulation with high potential difference"""
+        """Test constant potential simulation with high potential difference.
+
+        Tests CONP simulation with electrodes at high potential difference
+        to verify correct behavior under extreme conditions.
+        """
         self._run_pem_test(
             data_subdir="conp/far",
             lammpstrj_name="conp.lammpstrj",
@@ -368,7 +449,11 @@ class TestPEMModule(unittest.TestCase):
         )
 
     def test_near(self):
-        """Test constant potential simulation with electrodes in close proximity"""
+        """Test constant potential simulation with electrodes in close proximity.
+
+        Tests CONP simulation with electrodes positioned close together
+        to verify correct behavior under strong coupling conditions.
+        """
         self._run_pem_test(
             data_subdir="conp/near",
             lammpstrj_name="conp.lammpstrj",
@@ -377,7 +462,11 @@ class TestPEMModule(unittest.TestCase):
         )
 
     def test_conq(self):
-        """Test constant charge simulation"""
+        """Test constant charge simulation.
+
+        Tests CONQ simulation with fixed total charges on electrodes
+        to verify correct implementation of charge constraints.
+        """
         print("Testing conq")
         # Load test data
         data_path = "conq/after_pem.data"
@@ -444,7 +533,11 @@ class TestPEMModule(unittest.TestCase):
         self._verify_results(forces_calc_charge, ref_force, charges, self.ref_charge)
 
     def test_conq_jit(self):
-        """Test constant charge simulation with JIT compilation"""
+        """Test constant charge simulation with JIT compilation.
+
+        Tests that CONQ simulation produces identical results when
+        using JIT-compiled modules compared to regular PyTorch modules.
+        """
         print("Testing conq with JIT")
 
         data_path = "conq/jit/after_pem.data"
@@ -521,7 +614,11 @@ class TestPEMModule(unittest.TestCase):
         )
 
     def test_conp_jit(self):
-        """Test constant potential simulation with JIT compilation"""
+        """Test constant potential simulation with JIT compilation.
+
+        Tests that CONP simulation produces identical results when
+        using JIT-compiled modules compared to regular PyTorch modules.
+        """
         print("Testing conp with JIT")
         # Load test data
         data_path = "conp/near/after_pem.data"

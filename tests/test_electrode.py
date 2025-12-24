@@ -1,4 +1,11 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
+"""Tests for electrode functionality in torch-admp.
+
+This module contains tests to verify the correctness of electrode simulations,
+including constant potential (CONP) and constant charge (CONQ) simulations,
+with comparisons against LAMMPS reference data.
+"""
+
 import csv
 import unittest
 from pathlib import Path
@@ -104,7 +111,18 @@ class TestConpSlab3D(LAMMPSReferenceDataTest, unittest.TestCase):
 
 
 class LAMMPSReferenceDataTest:
+    """Test class for comparing torch-admp electrode results with LAMMPS reference data.
+
+    This class provides a generic test method to compare forces computed by
+    torch-admp with reference forces from LAMMPS simulations.
+    """
+
     def test(self) -> None:
+        """Test electrode simulation against LAMMPS reference data.
+
+        Compares forces computed by torch-admp with reference forces from LAMMPS,
+        ensuring that the implementation produces physically correct results.
+        """
         rcut = 5.0
         ethresh = 1e-6
         kappa = 0.5
@@ -173,7 +191,15 @@ class LAMMPSReferenceDataTest:
         )
 
     def _write_csv(self, data, filename):
-        """Write the differences to a CSV file."""
+        """Write the differences to a CSV file.
+
+        Parameters
+        ----------
+        data : np.ndarray
+            Array of differences to write
+        filename : str
+            Name of the CSV file to write
+        """
         with open(filename, mode="a", newline="") as file:
             writer = csv.writer(file)
             writer.writerow(["Index", "Difference"])
@@ -182,7 +208,18 @@ class LAMMPSReferenceDataTest:
 
 
 class TestConpSlab2D(LAMMPSReferenceDataTest, unittest.TestCase):
+    """Test constant potential simulation for 2D slab with slab correction.
+
+    Tests constant potential electrode simulation for a 2D slab system
+    with slab correction enabled.
+    """
+
     def setUp(self) -> None:
+        """Set up test data for 2D slab constant potential simulation.
+
+        Loads atomic positions and sets up electrode constraints for a 2D slab
+        system with slab correction.
+        """
         self.atoms = io.read(
             Path(__file__).parent / "data/lmp_conp_slab_2d/dump.lammpstrj"
         )
@@ -212,7 +249,18 @@ class TestConpSlab2D(LAMMPSReferenceDataTest, unittest.TestCase):
 
 
 class TestConpInterface3DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
+    """Test constant potential simulation for 3D interface at zero charge.
+
+    Tests constant potential electrode simulation for a 3D interface system
+    at zero charge condition.
+    """
+
     def setUp(self) -> None:
+        """Set up test data for 3D interface constant potential simulation.
+
+        Loads atomic positions and sets up electrode constraints for a 3D interface
+        system at zero charge condition.
+        """
         self.slab_corr = False
         self.atoms = io.read(
             Path(__file__).parent / "data/lmp_conp_interface_3d_pzc/dump.lammpstrj"
@@ -243,7 +291,18 @@ class TestConpInterface3DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
 
 
 class TestConpInterface3DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
+    """Test constant potential simulation for 3D interface with bias.
+
+    Tests constant potential electrode simulation for a 3D interface system
+    with applied bias potential.
+    """
+
     def setUp(self) -> None:
+        """Set up test data for 3D interface constant potential simulation.
+
+        Loads atomic positions and sets up electrode constraints for a 3D interface
+        system with applied bias potential.
+        """
         self.atoms = io.read(
             Path(__file__).parent / "data/lmp_conp_interface_3d_bias/dump.lammpstrj"
         )
@@ -273,7 +332,18 @@ class TestConpInterface3DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
 
 
 class TestConpInterface2DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
+    """Test constant potential simulation for 2D interface with bias.
+
+    Tests constant potential electrode simulation for a 2D interface system
+    with applied bias potential and slab correction.
+    """
+
     def setUp(self) -> None:
+        """Set up test data for 2D interface constant potential simulation.
+
+        Loads atomic positions and sets up electrode constraints for a 2D interface
+        system with applied bias potential and slab correction.
+        """
         self.atoms = io.read(
             Path(__file__).parent / "data/lmp_conp_interface_2d_bias/dump.lammpstrj"
         )
@@ -303,7 +373,18 @@ class TestConpInterface2DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
 
 
 class TestConpInterface2DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
+    """Test constant potential simulation for 2D interface at zero charge.
+
+    Tests constant potential electrode simulation for a 2D interface system
+    at zero charge condition with slab correction.
+    """
+
     def setUp(self) -> None:
+        """Set up test data for 2D interface constant potential simulation.
+
+        Loads atomic positions and sets up electrode constraints for a 2D interface
+        system at zero charge condition with slab correction.
+        """
         self.atoms = io.read(
             Path(__file__).parent / "data/lmp_conp_interface_2d_pzc/dump.lammpstrj"
         )
@@ -333,7 +414,18 @@ class TestConpInterface2DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
 
 
 class TestConqInterface2DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
+    """Test constant charge simulation for 2D interface at zero charge.
+
+    Tests constant charge electrode simulation for a 2D interface system
+    at zero charge condition with slab correction.
+    """
+
     def setUp(self) -> None:
+        """Set up test data for 2D interface constant charge simulation.
+
+        Loads atomic positions and sets up electrode constraints for a 2D interface
+        system at zero charge condition with slab correction.
+        """
         self.atoms = io.read(
             Path(__file__).parent / "data/lmp_conq_interface_2d_pzc/dump.lammpstrj"
         )
@@ -355,7 +447,18 @@ class TestConqInterface2DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
 
 
 class TestConqInterface2DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
+    """Test constant charge simulation for 2D interface with bias.
+
+    Tests constant charge electrode simulation for a 2D interface system
+    with applied bias potential and slab correction.
+    """
+
     def setUp(self) -> None:
+        """Set up test data for 2D interface constant charge simulation.
+
+        Loads atomic positions and sets up electrode constraints for a 2D interface
+        system with applied bias potential and slab correction.
+        """
         self.atoms = io.read(
             Path(__file__).parent / "data/lmp_conq_interface_2d_bias/dump.lammpstrj"
         )
@@ -384,7 +487,18 @@ class TestConqInterface2DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
 
 
 class TestConqInterface2DEDL(LAMMPSReferenceDataTest, unittest.TestCase):
+    """Test constant charge simulation for 2D interface with EDL.
+
+    Tests constant charge electrode simulation for a 2D interface system
+    with electrical double layer (EDL) formation.
+    """
+
     def setUp(self) -> None:
+        """Set up test data for 2D interface constant charge simulation.
+
+        Loads atomic positions and sets up electrode constraints for a 2D interface
+        system with electrical double layer (EDL) formation.
+        """
         self.atoms = io.read(
             Path(__file__).parent / "data/lmp_conq_interface_2d_edl/dump.lammpstrj"
         )
@@ -406,7 +520,18 @@ class TestConqInterface2DEDL(LAMMPSReferenceDataTest, unittest.TestCase):
 
 
 class TestConqInterface3DEDL(LAMMPSReferenceDataTest, unittest.TestCase):
+    """Test constant charge simulation for 3D interface with EDL.
+
+    Tests constant charge electrode simulation for a 3D interface system
+    with electrical double layer (EDL) formation.
+    """
+
     def setUp(self) -> None:
+        """Set up test data for 3D interface constant charge simulation.
+
+        Loads atomic positions and sets up electrode constraints for a 3D interface
+        system with electrical double layer (EDL) formation.
+        """
         self.atoms = io.read(
             Path(__file__).parent / "data/lmp_conq_interface_3d_edl/dump.lammpstrj"
         )
@@ -428,7 +553,18 @@ class TestConqInterface3DEDL(LAMMPSReferenceDataTest, unittest.TestCase):
 
 
 class TestConqInterface3DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
+    """Test constant charge simulation for 3D interface with bias.
+
+    Tests constant charge electrode simulation for a 3D interface system
+    with applied bias potential.
+    """
+
     def setUp(self) -> None:
+        """Set up test data for 3D interface constant charge simulation.
+
+        Loads atomic positions and sets up electrode constraints for a 3D interface
+        system with applied bias potential.
+        """
         self.atoms = io.read(
             Path(__file__).parent / "data/lmp_conq_interface_3d_bias/dump.lammpstrj"
         )
@@ -457,7 +593,18 @@ class TestConqInterface3DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
 
 
 class TestConqInterface3DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
+    """Test constant charge simulation for 3D interface at zero charge.
+
+    Tests constant charge electrode simulation for a 3D interface system
+    at zero charge condition.
+    """
+
     def setUp(self) -> None:
+        """Set up test data for 3D interface constant charge simulation.
+
+        Loads atomic positions and sets up electrode constraints for a 3D interface
+        system at zero charge condition.
+        """
         self.atoms = io.read(
             Path(__file__).parent / "data/lmp_conq_interface_3d_pzc/dump.lammpstrj"
         )
