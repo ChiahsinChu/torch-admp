@@ -1,0 +1,94 @@
+import torch
+import numpy as np
+import unittest
+
+from deepmd.pt.utils.utils import to_numpy_array, to_torch_tensor
+from deepmd.pt.utils import (
+    env,
+)
+from torch_admp.pme import CoulombForceModule
+from torch_admp.utils import calc_grads
+
+SEED = 1
+
+dtype = torch.float64
+
+
+def finite_difference(f, x, delta=1e-6):
+    in_shape = x.shape
+    y0 = f(x)
+    out_shape = y0.shape
+    res = np.empty(out_shape + in_shape)
+    for idx in np.ndindex(*in_shape):
+        diff = np.zeros(in_shape)
+        diff[idx] += delta
+        y1p = f(x + diff)
+        y1n = f(x - diff)
+        res[(Ellipsis, *idx)] = (y1p - y1n) / (2 * delta)
+    return res
+
+def data_generator(natoms: int, l_box: float):
+    generator = torch.Generator(device=env.DEVICE).manual_seed(SEED)
+    box = torch.rand([3, 3], device=env.DEVICE, dtype=dtype, generator=generator)
+    box = (box + box.T) + l_box * torch.eye(3)
+    positions = torch.rand([natoms, 3], device=env.DEVICE, dtype=dtype, generator=generator)
+    positions = torch.matmul(positions, box)
+    
+    positions.requires_grad_(True)
+    box.requires_grad_(True)
+    
+    placeholder_pairs = torch.ones(1, 2).to(torch.long)
+    placeholder_ds = torch.ones(1)
+    placeholder_buffer_scales = torch.zeros(1)
+    
+    input_dict = {
+        "positions": positions,
+        "box": box, 
+        "pairs": placeholder_pairs,
+        "ds": placeholder_ds,
+        "buffer_scales": placeholder_buffer_scales,
+    }
+    
+    return generator, input_dict
+
+
+class FDTest:
+    def test(
+        self,
+    ) -> None:
+        places = 5
+        delta = 1e-5
+        
+        for test_kw in ["positions", "box"]:
+            def ff(v):
+                input_dict = self.input_dict.copy()
+                input_dict[test_kw] = to_torch_tensor(v)
+                return to_numpy_array(self.calculator(**input_dict))
+            
+            fd_grad = finite_difference(ff, to_numpy_array(self.input_dict[test_kw]), delta=delta)
+            rf_grad = calc_grads(self.calculator(**self.input_dict), self.input_dict[test_kw])
+            rf_grad = to_numpy_array(rf_grad)
+            np.testing.assert_almost_equal(fd_grad, rf_grad, decimal=places)
+        
+class TestCoulombForceModuleFD(unittest.TestCase, FDTest):
+    def setUp(self):
+        natoms = 100
+        l_box = 10.0
+        
+        generator, input_dict = data_generator(natoms, l_box)
+        self.input_dict = input_dict
+        
+        rcut = 5.0
+        ewald_h = 0.4
+        ewald_beta = 0.5
+
+        self.calculator = CoulombForceModule(
+            rcut=rcut,
+            rspace=False,
+            kappa=ewald_beta,
+            spacing=ewald_h,
+        )
+        charges = torch.rand([natoms], device=env.DEVICE, dtype=dtype, generator=generator)
+        self.input_dict["params"] = {"charge": charges}
+        
+        

@@ -29,6 +29,7 @@ from scipy import constants
 torch.set_default_device("cuda")
 torch.set_default_dtype(torch.float64)
 
+
 def load_test_data():
     """Load system data from XML and PDB files"""
     xml = XMLIO()
@@ -48,7 +49,7 @@ def load_test_data():
     eta = np.zeros([n_atoms])
     chi = np.zeros([n_atoms])
     hardness = np.zeros([n_atoms])
-    
+
     # Extract QEq parameters from force field
     for _data in ffinfo["Forces"]["ADMPQeqForce"]["node"]:
         eta[types == _data["attrib"]["type"]] = float(_data["attrib"]["eta"])
@@ -58,7 +59,7 @@ def load_test_data():
     # Convert energy units from kJ/mol to eV
     j2ev = constants.physical_constants["joule-electron volt relationship"][0]
     energy_coeff = j2ev * constants.kilo / constants.Avogadro
-    
+
     return {
         "n_atoms": n_atoms,
         "position": np.array(positions),
@@ -68,6 +69,7 @@ def load_test_data():
         "eta": eta,
         "charge": charges,
     }
+
 
 # Load system data
 data_dict = load_test_data()
@@ -95,9 +97,17 @@ constraint_vals = torch.zeros(1, dtype=torch.float64)
 ethresh = 1e-5
 module = QEqForceModule(rcut=rcut, ethresh=ethresh)
 energy, q_opt = module.solve_pgrad(
-    charges, positions, box, chi, hardness, eta,
-    pairs, ds, buffer_scales,
-    constraint_matrix, constraint_vals,
+    charges,
+    positions,
+    box,
+    chi,
+    hardness,
+    eta,
+    pairs,
+    ds,
+    buffer_scales,
+    constraint_matrix,
+    constraint_vals,
 )
 
 # Calculate forces

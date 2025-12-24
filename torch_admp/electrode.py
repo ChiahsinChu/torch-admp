@@ -795,4 +795,3 @@ def conq_aimd_data(
         method=method,
         ffield=False,
     )
-

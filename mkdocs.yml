@@ -7,19 +7,19 @@ copyright: Copyright &copy; 2024 Jia-Xin Zhu
 nav:
   - Home: index.md
   - API Reference:
-    - torch_admp: api/torch_admp.md
-    - base_force: api/base_force.md
-    - electrode: api/electrode.md
-    - nblist: api/nblist.md
-    - optimizer: api/optimizer.md
-    - pme: api/pme.md
-    - qeq: api/qeq.md
-    - recip: api/recip.md
-    - spatial: api/spatial.md
-    - utils: api/utils.md
+      - torch_admp: api/torch_admp.md
+      - base_force: api/base_force.md
+      - electrode: api/electrode.md
+      - nblist: api/nblist.md
+      - optimizer: api/optimizer.md
+      - pme: api/pme.md
+      - qeq: api/qeq.md
+      - recip: api/recip.md
+      - spatial: api/spatial.md
+      - utils: api/utils.md
   - Examples:
-    - PME Example: examples/pme.md
-    - QEq Example: examples/qeq.md
+      - PME Example: examples/pme.md
+      - QEq Example: examples/qeq.md
 
 theme:
   name: material
@@ -51,7 +51,7 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          paths: [.]  # Path to source code
+          paths: [.] # Path to source code
           options:
             show_source: true
             show_root_heading: true
