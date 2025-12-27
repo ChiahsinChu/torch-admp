@@ -1,14 +1,18 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = [
+    "setuptools>=45",
+    "wheel",
+    "setuptools_scm[toml]>=6.2",
+    "hatch-fancy-pypi-readme",
+]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "torch_admp"
-version = "1.1.0a"
+dynamic = ["version", "readme"]
 description = "ADMP in PyTorch backend"
-readme = "README.md"
 license = { file = ".license-header.txt" }
 dependencies = [
     "torch>=2.1.0",
@@ -20,6 +24,23 @@ dependencies = [
 ]
 [project.urls]
 Homepage = "https://github.com/ChiahsinChu/torch-admp"
+
+[tool.setuptools_scm]
+write_to = "torch_admp/_version.py"
+version_scheme = "release-branch-semver"
+local_scheme = "node-and-date"
+
+[tool.setuptools.packages.find]
+include = ["torch_admp*"]
+
+[tool.setuptools.dynamic]
+readme = {file = "README.md", content-type = "text/markdown"}
+
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
 
 [project.optional-dependencies]
 test = [
@@ -43,5 +64,3 @@ docs = [
     "griffe>=0.48.0"
 ]
 
-[tool.setuptools]
-packages = ["torch_admp"]
