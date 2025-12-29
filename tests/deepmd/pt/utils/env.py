@@ -6,10 +6,7 @@ import sys
 
 import numpy as np
 import torch
-
-from deepmd.common import (
-    VALID_PRECISION,
-)
+from deepmd.common import VALID_PRECISION
 from deepmd.env import (
     GLOBAL_ENER_FLOAT_PRECISION,
     GLOBAL_NP_FLOAT_PRECISION,

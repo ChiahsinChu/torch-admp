@@ -1,4 +1,4 @@
-name: CI
+name: Test Python
 
 on:
   push:
@@ -36,18 +36,21 @@ jobs:
 
       - name: Test with pytest
         run: |
-          pytest --cov --junitxml=junit.xml --cov-report=xml
+          pytest --cov=torch_admp tests --junitxml=junit.xml --cov-report=xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          slug: ChiahsinChu/torch_admp
-          file: ./coverage.xml
+          slug: ${{ github.repository }}
+          files: ./coverage.xml
+          report_type: coverage
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@v1
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./junit.xml
+          slug: ${{ github.repository }}
+          files: ./junit.xml
+          report_type: test_results

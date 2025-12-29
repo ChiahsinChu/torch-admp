@@ -1,22 +1,14 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
-from typing import (
-    Any,
-    overload,
-)
+from typing import Any, overload
 
 import ml_dtypes
 import numpy as np
 import torch
 import torch.nn.functional as F
-
 from deepmd.dpmodel.common import PRECISION_DICT as NP_PRECISION_DICT
-from deepmd.pt.utils import (
-    env,
-)
+from deepmd.pt.utils import env
 
-from .env import (
-    DEVICE,
-)
+from .env import DEVICE
 from .env import PRECISION_DICT as PT_PRECISION_DICT
 
 
