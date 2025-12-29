@@ -2,9 +2,8 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
-      - devel
+    branches-ignore:
+      - gh_pages
   pull_request:
 
 jobs:
@@ -14,6 +13,15 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Free Disk Space for Python
+        uses: endersonmenezes/free-disk-space@v3
+        with:
+          remove_android: true
+          remove_dotnet: true
+          remove_folders: "/usr/share/swift /usr/local/julia"
+          rm_cmd: "rmz" # NEW: Faster deletion
+          rmz_version: "3.1.1" # NEW: Specify rmz version
 
       - name: Set up Python
         uses: actions/setup-python@v4
