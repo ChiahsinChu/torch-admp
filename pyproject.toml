@@ -27,8 +27,7 @@ Homepage = "https://github.com/ChiahsinChu/torch-admp"
 
 [tool.setuptools_scm]
 write_to = "torch_admp/_version.py"
-version_scheme = "release-branch-semver"
-local_scheme = "node-and-date"
+local_scheme = "no-local-version"
 
 [tool.setuptools.packages.find]
 include = ["torch_admp*"]
@@ -51,7 +50,6 @@ test = [
     "jaxlib>=0.4.1, <=0.4.20",
     "numpy>=1.21,<2.0",
     "freud-analysis==3.4.0",
-    "DMFF @ git+https://github.com/ChiahsinChu/DMFF.git@devel",
 ]
 docs = [
     "mkdocs>=1.5.0",
