@@ -127,26 +127,26 @@ class SiteForceModule(BaseForceModule):
         Parameters
         ----------
         positions : torch.Tensor
-            Atomic positions with shape (natoms, 3). Each row contains the
-            x, y, z coordinates of an atom.
-        box : torch.Tensor
-            Simulation box vectors with shape (3, 3). Each row represents a
-            box vector. Required for periodic boundary conditions.
+            Atomic positions with shape (nframes, natoms, 3). Each frame contains
+            the x, y, z coordinates of all atoms.
+        box : Optional[torch.Tensor]
+            Simulation box vectors with shape (nframes, 3, 3) or None if input was None.
+            Each frame contains three box vectors. Required for periodic boundary conditions.
         pairs : torch.Tensor
-            Tensor of atom pairs with shape (n_pairs, 2). Each row contains
+            Tensor of atom pairs with shape (nframes, n_pairs, 2). Each frame contains
             the indices of two atoms that form a pair.
         ds : torch.Tensor
-            Distance tensor with shape (n_pairs,). Contains the distances
-            between atom pairs specified in the pairs tensor.
+            Distance tensor with shape (nframes, n_pairs). Contains the distances
+            between atom pairs specified in the pairs tensor for each frame.
         buffer_scales : torch.Tensor
-            Buffer scales for each pair with shape (n_pairs,). Contains values
+            Buffer scales for each pair with shape (nframes, n_pairs). Contains values
             of 1 if i < j else 0 for each pair, used for buffer management.
         params : Dict[str, torch.Tensor]
             Dictionary of parameters for the chemical site model:
             {
-                "charge": t_charges, # atomic charges with shape (natoms,)
-                "chi": t_chi, # electronegativity in energy/charge unit with shape (natoms,)
-                "hardness": t_hardness, # atomic hardness in energy/charge^2 unit with shape (natoms,)
+                "charge": t_charges, # atomic charges with shape (nframes, natoms,)
+                "chi": t_chi, # electronegativity in energy/charge unit with shape (nframes, natoms,)
+                "hardness": t_hardness, # atomic hardness in energy/charge^2 unit with shape (nframes, natoms,)
             }
 
         Returns
@@ -266,27 +266,27 @@ class QEqForceModule(BaseForceModule):
         Parameters
         ----------
         positions : torch.Tensor
-            Atomic positions with shape (natoms, 3). Each row contains the
-            x, y, z coordinates of an atom.
-        box : torch.Tensor
-            Simulation box vectors with shape (3, 3). Each row represents a
-            box vector. Required for periodic boundary conditions.
+            Atomic positions with shape (nframes, natoms, 3). Each frame contains
+            the x, y, z coordinates of all atoms.
+        box : Optional[torch.Tensor]
+            Simulation box vectors with shape (nframes, 3, 3) or None if input was None.
+            Each frame contains three box vectors. Required for periodic boundary conditions.
         pairs : torch.Tensor
-            Tensor of atom pairs with shape (n_pairs, 2). Each row contains
+            Tensor of atom pairs with shape (nframes, n_pairs, 2). Each frame contains
             the indices of two atoms that form a pair.
         ds : torch.Tensor
-            Distance tensor with shape (n_pairs,). Contains the distances
-            between atom pairs specified in the pairs tensor.
+            Distance tensor with shape (nframes, n_pairs). Contains the distances
+            between atom pairs specified in the pairs tensor for each frame.
         buffer_scales : torch.Tensor
-            Buffer scales for each pair with shape (n_pairs,). Contains values
+            Buffer scales for each pair with shape (nframes, n_pairs). Contains values
             of 1 if i < j else 0 for each pair, used for buffer management.
         params : Dict[str, torch.Tensor]
             Dictionary of parameters for the QEq model:
             {
-                "charge": t_charges, # (optional) initial guess for atomic charges with shape (natoms,),
-                "chi": t_chi, # electronegativity in energy/charge unit with shape (natoms,),
-                "hardness": t_hardness, # atomic hardness in energy/charge^2 unit with shape (natoms,),
-                "eta": t_eta, # Gaussian width in length unit with shape (natoms,)
+                "charge": t_charges, # (optional) initial guess for atomic charges with shape (nframes, natoms,),
+                "chi": t_chi, # electronegativity in energy/charge unit with shape (nframes, natoms,),
+                "hardness": t_hardness, # atomic hardness in energy/charge^2 unit with shape (nframes, natoms,),
+                "eta": t_eta, # Gaussian width in length unit with shape (nframes, natoms,)
             }
 
         Returns

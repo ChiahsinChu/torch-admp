@@ -95,13 +95,17 @@ class TestOBCCoulombForceModule(unittest.TestCase):
         self.box = None
         charges = atoms.get_initial_charges()
 
-        self.positions = torch.tensor(positions, requires_grad=True)
+        _positions = torch.tensor(positions, requires_grad=True)
         self.charges = torch.tensor(charges)
+        self.positions = _positions.unsqueeze(0)
 
         self.nblist = TorchNeighborList(cutoff=4.0)
-        self.pairs = self.nblist(self.positions, self.box)
-        self.ds = self.nblist.get_ds()
-        self.buffer_scales = self.nblist.get_buffer_scales()
+        self.pairs = self.nblist(
+            self.positions.squeeze(0),
+            self.box,
+        ).unsqueeze(0)
+        self.ds = self.nblist.get_ds().unsqueeze(0)
+        self.buffer_scales = self.nblist.get_buffer_scales().unsqueeze(0)
 
         self.module = CoulombForceModule(rcut=5.0, ethresh=1e-5)
         # test jit-able
@@ -154,24 +158,28 @@ class TestOBCCoulombForceModule(unittest.TestCase):
             )
         )
 
-
 class TestPBCCoulombForceModule(unittest.TestCase):
     def setUp(self) -> None:
         self.ref_system = TestOpenMMSimulation()
         self.ref_system.setup(real_space=True)
 
-        self.positions = torch.tensor(self.ref_system.positions, requires_grad=True)
-        self.charges = torch.tensor(self.ref_system.charges)
-        self.box = torch.tensor(
+        _positions = torch.tensor(self.ref_system.positions, requires_grad=True)
+        self.charges = torch.tensor(self.ref_system.charges).unsqueeze(0)
+        _box = torch.tensor(
             np.diag(
                 [self.ref_system.l_box, self.ref_system.l_box, self.ref_system.l_box]
             )
         )
+        self.positions = _positions.unsqueeze(0)
+        self.box = _box.unsqueeze(0)
 
         self.nblist = TorchNeighborList(cutoff=self.ref_system.rcut)
-        self.pairs = self.nblist(self.positions, self.box)
-        self.ds = self.nblist.get_ds()
-        self.buffer_scales = self.nblist.get_buffer_scales()
+        self.pairs = self.nblist(
+            self.positions.squeeze(0),
+            self.box.squeeze(0),
+        ).unsqueeze(0)
+        self.ds = self.nblist.get_ds().unsqueeze(0)
+        self.buffer_scales = self.nblist.get_buffer_scales().unsqueeze(0)
 
         self.module = CoulombForceModule(
             rcut=self.ref_system.rcut,
@@ -179,6 +187,7 @@ class TestPBCCoulombForceModule(unittest.TestCase):
         )
         # test jit-able
         self.jit_module = torch.jit.script(self.module)
+        # self.jit_module = self.module
 
     def test_numerical(self):
         energy = self.module(
@@ -204,9 +213,9 @@ class TestPBCCoulombForceModule(unittest.TestCase):
         # A^-1 to nm^-1 for kappa
         nonbonded.setPMEParameters(
             self.module.kappa * 10.0,
-            self.module.kmesh[0].item(),
-            self.module.kmesh[1].item(),
-            self.module.kmesh[2].item(),
+            self.module.kmesh[0, 0].item(),
+            self.module.kmesh[0, 1].item(),
+            self.module.kmesh[0, 2].item(),
         )
         # simulation = self.ref_system.simulation
         # ewald_params = nonbonded.getPMEParametersInContext(simulation.context)
@@ -245,17 +254,6 @@ class TestPBCCoulombForceModule(unittest.TestCase):
             )
         )
 
-        # self.ref_system.setup(real_space=False)
-        # ref_energy_reciprocal, ref_forces_reciprocal = self.ref_system.run()
-        # print(ref_energy - ref_energy_reciprocal)
-        # print(self.module.real_energy)
-
-        # print("non-neutral energy: ", self.module.non_neutral_energy)
-        # print("reciprocal")
-        # print(ref_energy_reciprocal)
-        # print((self.module.reciprocal_energy + self.module.self_energy).item())
-
-
 class TestPBCSlabCorrCoulombForceModule(unittest.TestCase):
     def setUp(self) -> None:
         atoms = io.read(
@@ -266,42 +264,18 @@ class TestPBCSlabCorrCoulombForceModule(unittest.TestCase):
         box = atoms.get_cell().array
         charges = atoms.get_initial_charges()
 
-        self.positions = torch.tensor(positions, requires_grad=True)
-        self.box = torch.tensor(box)
-        self.charges = torch.tensor(charges)
+        _positions = torch.tensor(positions, requires_grad=True)
+        _box = torch.tensor(box)
+        self.charges = torch.tensor(charges).unsqueeze(0)
+        self.positions = _positions.unsqueeze(0)
+        self.box = _box.unsqueeze(0)
 
         self.nblist = TorchNeighborList(cutoff=4.0)
-        self.pairs = self.nblist(self.positions, self.box)
-        self.ds = self.nblist.get_ds()
-        self.buffer_scales = self.nblist.get_buffer_scales()
-
-    # def make_ref_data(self, axis: int):
-    #     atoms = io.read(
-    #         str(Path(__file__).parent / "data/lmp_coul_pbc/system.data"),
-    #         format="lammps-data",
-    #     )
-    #     positions = atoms.get_positions()
-    #     box = atoms.get_cell()
-    #     charges = atoms.get_initial_charges()
-
-    #     self.dipole = np.sum(
-    #         positions * charges[:, None], axis=0
-    #     )
-    #     self.tot_charge = np.sum(charges)
-
-    #     dipole = self.dipole[axis]
-    #     z = positions[:, axis]
-
-    #     volume = atoms.get_volume()
-    #     epsilon = constants.epsilon_0 / constants.elementary_charge * constants.angstrom
-    #     coeff = 2 * np.pi / volume / (4 * np.pi * epsilon)
-    #     e = (
-    #         dipole**2
-    #         - self.tot_charge * np.sum(charges * z**2)
-    #         + self.tot_charge**2 * box[axis, axis]**2 / 12
-    #     )
-    #     e *= coeff
-    #     return e
+        self.pairs = self.nblist(
+            self.positions.squeeze(0), self.box.squeeze(0)
+        ).unsqueeze(0)
+        self.ds = self.nblist.get_ds().unsqueeze(0)
+        self.buffer_scales = self.nblist.get_buffer_scales().unsqueeze(0)
 
     def lammps_ref_data(self):
         e1 = np.loadtxt(
