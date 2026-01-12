@@ -4,7 +4,7 @@ Automatic Differentiable Multipolar Polarizable (ADMP) in PyTorch backend
 
 ## Overview
 
-`torch-admp` is a PyTorch implementation of the Automatic Differentiable Multipolar Polarizable (ADMP) framework. This package provides efficient implementations of various molecular dynamics force calculations including:
+`torch-admp` is a PyTorch implementation of the ADMP (Automatic Differentiable Multipolar Polarizable) module in [DMFF](https://github.com/deepmodeling/DMFF) (Differentiable Molecular Force Field) package. This package provides efficient implementations of various molecular dynamics force calculations including:
 
 - Particle Mesh Ewald (PME) for electrostatic interactions
 - Charge Equilibration (QEq) methods
@@ -24,20 +24,6 @@ For development:
 git clone https://github.com/ChiahsinChu/torch-admp.git
 cd torch-admp
 pip install -e .[docs,test]
-```
-
-## Quick Start
-
-```python
-import torch
-from torch_admp import QEqForceModule
-
-# Initialize QEq module
-qeq = QEqForceModule()
-
-# Calculate charges and forces
-positions = torch.randn(100, 3)  # 100 atoms
-charges, forces = qeq(positions)
 ```
 
 ## Features
