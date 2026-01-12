@@ -1,6 +1,6 @@
 # DMFF in PyTorch backend
 
-[![codecov](https://codecov.io/gh/ChiahsinChu/torch_admp/graph/badge.svg?token=9PXNT5XB7C)](https://codecov.io/gh/ChiahsinChu/torch_admp)
+[![codecov](https://codecov.io/gh/ChiahsinChu/torch_admp/graph/badge.svg?token=9PXNT5XB7C)](https://codecov.io/gh/ChiahsinChu/torch_admp) [![PyPI version](https://img.shields.io/pypi/v/torch-admp)](https://pypi.org/project/torch-admp/)
 
 > torch version of ADMP is initialized by [Zheng Cheng](https://github.com/zhengcheng233/dmff_torch) (AISI).
 
@@ -11,22 +11,16 @@ This package implements the PME method (for monopoles) and the QEq method in [DM
 This package can be installed by:
 
 ```bash
-git clone https://github.com/ChiahsinChu/torch-admp
 pip install torch-admp
 ```
 
-For the unit tests, you can install the package with the following command:
+For the unit tests, you can install the package from source with the following command:
 
 ```bash
 git clone https://github.com/ChiahsinChu/torch-admp
 pip install torch-admp[test]
 pip install "DMFF @ git+https://github.com/ChiahsinChu/DMFF.git@devel"
 ```
-
-## To-do
-
-- [ ] Add doc for usage
-- [ ] Add unittest for QEq v.s. RuNNer
 
 ## Examples
 
