@@ -42,7 +42,6 @@ class CoulombForceModule(BaseForceModule):
         slab_corr: bool = False,
         slab_axis: int = 2,
         units_dict: Optional[Dict] = None,
-        sel: list[int] = None,
         kappa: Optional[float] = None,
         spacing: Optional[List[float]] = None,
     ) -> None:
@@ -92,15 +91,11 @@ class CoulombForceModule(BaseForceModule):
         )
 
         self.rcut = rcut
-        self.sel = sel
 
     def get_rcut(self) -> float:
         return self.rcut
 
-    def get_sel(self):
-        return self.sel
-
-    def forward(
+    def _forward_impl(
         self,
         positions: torch.Tensor,
         box: Optional[torch.Tensor],
@@ -114,23 +109,37 @@ class CoulombForceModule(BaseForceModule):
         Parameters
         ----------
         positions : torch.Tensor
-            atomic positions
+            Atomic positions with shape (natoms, 3) for single system or
+            (nframes, natoms, 3) for batched systems. Each row contains the
+            x, y, z coordinates of an atom.
         box : torch.Tensor
-            simulation box
+            Simulation box vectors with shape (3, 3) for single system or
+            (nframes, 3, 3) for batched systems. Each row represents a
+            box vector. Required for periodic boundary conditions.
         pairs : torch.Tensor
-            n_pairs * 2 tensor of pairs
+            Tensor of atom pairs with shape (n_pairs, 2) for single system or
+            (nframes, n_pairs, 2) for batched systems. Each row contains
+            the indices of two atoms that form a pair.
         ds : torch.Tensor
-            i-j distance tensor
+            Distance tensor with shape (n_pairs,) for single system or
+            (nframes, n_pairs) for batched systems. Contains the distances
+            between atom pairs specified in the pairs tensor.
         buffer_scales : torch.Tensor
-            buffer scales for each pair, 1 if i < j else 0
+            Buffer scales for each pair with shape (n_pairs,) for single system or
+            (nframes, n_pairs) for batched systems. Contains values
+            of 1 if i < j else 0 for each pair, used for buffer management.
         params : Dict[str, torch.Tensor]
-            {"charge": t_charges}
+            Dictionary of parameters for the Coulomb model:
+            {"charge": t_charges} # atomic charges with shape (natoms,) for single system
+            or (nframes, natoms) for batched systems.
 
         Returns
         -------
         energy: torch.Tensor
-            energy tensor
+            Scalar energy tensor for single system or (nframes,) for batched systems
+            representing the total Coulomb energy.
         """
+        # Convert units
         positions = positions * self.const_lib.length_coeff
         ds = ds * self.const_lib.length_coeff
         charges = params["charge"]

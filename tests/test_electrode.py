@@ -58,7 +58,7 @@ class LAMMPSReferenceDataTest:
         if self.slab_corr:
             cell[2, 2] *= slab_factor
         self.box = torch.tensor(cell)
-        print(self.box)
+        # print(self.box)
 
         self.charges = torch.tensor(
             self.atoms.get_initial_charges(), requires_grad=True

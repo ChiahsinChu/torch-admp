@@ -42,7 +42,7 @@ class PolarizableElectrode(QEqForceModule):
         """
         modified_charges = torch.where(electrode_mask == 0, charges, 0.0)
         modified_charges.requires_grad_(True)
-        energy = self.forward(
+        energy = self._forward_impl(
             positions,
             box,
             pairs,
@@ -73,7 +73,7 @@ class PolarizableElectrode(QEqForceModule):
         """
         Compute the Coulomb force for the system
         """
-        energy = self.forward(
+        energy = self._forward_impl(
             positions,
             box,
             pairs,

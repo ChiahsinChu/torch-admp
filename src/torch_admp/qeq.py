@@ -28,7 +28,7 @@ class GaussianDampingForceModule(BaseForceModule):
     ) -> None:
         BaseForceModule.__init__(self, units_dict)
 
-    def forward(
+    def _forward_impl(
         self,
         positions: torch.Tensor,
         box: Optional[torch.Tensor],
@@ -42,25 +42,31 @@ class GaussianDampingForceModule(BaseForceModule):
         Parameters
         ----------
         positions : torch.Tensor
-            atomic positions
+            Atomic positions with shape (natoms, 3). Each row contains the
+            x, y, z coordinates of an atom.
         box : torch.Tensor
-            simulation box
+            Simulation box vectors with shape (3, 3). Each row represents a
+            box vector. Required for periodic boundary conditions.
         pairs : torch.Tensor
-            n_pairs * 2 tensor of pairs
+            Tensor of atom pairs with shape (n_pairs, 2). Each row contains
+            the indices of two atoms that form a pair.
         ds : torch.Tensor
-            i-j distance tensor
+            Distance tensor with shape (n_pairs,). Contains the distances
+            between atom pairs specified in the pairs tensor.
         buffer_scales : torch.Tensor
-            buffer scales for each pair, 1 if i < j else 0
+            Buffer scales for each pair with shape (n_pairs,). Contains values
+            of 1 if i < j else 0 for each pair, used for buffer management.
         params : Dict[str, torch.Tensor]
+            Dictionary of parameters for the Gaussian damping model:
             {
-                "charge": t_charges, # atomic charges
-                "eta": t_eta, # Gaussian width in length unit
+                "charge": t_charges, # atomic charges with shape (natoms,)
+                "eta": t_eta, # Gaussian width in length unit with shape (natoms,)
             }
 
         Returns
         -------
         energy: torch.Tensor
-            energy tensor
+            Scalar energy tensor representing the total Gaussian damping energy.
         """
         return self.forward_lower(
             charges=params["charge"],
@@ -107,7 +113,7 @@ class SiteForceModule(BaseForceModule):
     ) -> None:
         BaseForceModule.__init__(self, units_dict)
 
-    def forward(
+    def _forward_impl(
         self,
         positions: torch.Tensor,
         box: Optional[torch.Tensor],
@@ -121,26 +127,32 @@ class SiteForceModule(BaseForceModule):
         Parameters
         ----------
         positions : torch.Tensor
-            atomic positions
+            Atomic positions with shape (natoms, 3). Each row contains the
+            x, y, z coordinates of an atom.
         box : torch.Tensor
-            simulation box
+            Simulation box vectors with shape (3, 3). Each row represents a
+            box vector. Required for periodic boundary conditions.
         pairs : torch.Tensor
-            n_pairs * 2 tensor of pairs
+            Tensor of atom pairs with shape (n_pairs, 2). Each row contains
+            the indices of two atoms that form a pair.
         ds : torch.Tensor
-            i-j distance tensor
+            Distance tensor with shape (n_pairs,). Contains the distances
+            between atom pairs specified in the pairs tensor.
         buffer_scales : torch.Tensor
-            buffer scales for each pair, 1 if i < j else 0
+            Buffer scales for each pair with shape (n_pairs,). Contains values
+            of 1 if i < j else 0 for each pair, used for buffer management.
         params : Dict[str, torch.Tensor]
+            Dictionary of parameters for the chemical site model:
             {
-                "charge": t_charges, # atomic charges
-                "chi": t_chi, # eletronegativity in energy / charge unit
-                "hardness": t_hardness, # atomic hardness in energy / charge^2 unit
+                "charge": t_charges, # atomic charges with shape (natoms,)
+                "chi": t_chi, # electronegativity in energy/charge unit with shape (natoms,)
+                "hardness": t_hardness, # atomic hardness in energy/charge^2 unit with shape (natoms,)
             }
 
         Returns
         -------
         energy: torch.Tensor
-            energy tensor
+            Scalar energy tensor representing the total chemical site energy.
         """
         return self.forward_lower(params["chi"], params["hardness"], params["charge"])
 
@@ -240,7 +252,7 @@ class QEqForceModule(BaseForceModule):
     def get_sel(self):
         return self.sel
 
-    def forward(
+    def _forward_impl(
         self,
         positions: torch.Tensor,
         box: Optional[torch.Tensor],
@@ -254,27 +266,33 @@ class QEqForceModule(BaseForceModule):
         Parameters
         ----------
         positions : torch.Tensor
-            atomic positions
+            Atomic positions with shape (natoms, 3). Each row contains the
+            x, y, z coordinates of an atom.
         box : torch.Tensor
-            simulation box
+            Simulation box vectors with shape (3, 3). Each row represents a
+            box vector. Required for periodic boundary conditions.
         pairs : torch.Tensor
-            n_pairs * 2 tensor of pairs
+            Tensor of atom pairs with shape (n_pairs, 2). Each row contains
+            the indices of two atoms that form a pair.
         ds : torch.Tensor
-            i-j distance tensor
+            Distance tensor with shape (n_pairs,). Contains the distances
+            between atom pairs specified in the pairs tensor.
         buffer_scales : torch.Tensor
-            buffer scales for each pair, 1 if i < j else 0
+            Buffer scales for each pair with shape (n_pairs,). Contains values
+            of 1 if i < j else 0 for each pair, used for buffer management.
         params : Dict[str, torch.Tensor]
+            Dictionary of parameters for the QEq model:
             {
-                "charge": t_charges, # (optional) initial guess for atomic charges,
-                "chi": t_chi, # eletronegativity in energy / charge unit
-                "hardness": t_hardness, # atomic hardness in energy / charge^2 unit
-                "eta": t_eta, # Gaussian width in length unit
+                "charge": t_charges, # (optional) initial guess for atomic charges with shape (natoms,),
+                "chi": t_chi, # electronegativity in energy/charge unit with shape (natoms,),
+                "hardness": t_hardness, # atomic hardness in energy/charge^2 unit with shape (natoms,),
+                "eta": t_eta, # Gaussian width in length unit with shape (natoms,)
             }
 
         Returns
         -------
         energy: torch.Tensor
-            energy tensor
+            Scalar energy tensor representing the total QEq energy.
         """
         energy = torch.zeros(1, device=positions.device)
         for model in self.submodels.values():
