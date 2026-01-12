@@ -26,11 +26,12 @@ dependencies = [
 Homepage = "https://github.com/ChiahsinChu/torch-admp"
 
 [tool.setuptools_scm]
-write_to = "torch_admp/_version.py"
+write_to = "src/torch_admp/_version.py"
 local_scheme = "no-local-version"
 
 [tool.setuptools.packages.find]
-include = ["torch_admp*"]
+where = ["src"]
+include = ["torch_admp"]
 
 [tool.setuptools.dynamic]
 readme = {file = "README.md", content-type = "text/markdown"}
