@@ -14,6 +14,6 @@ last_updated: 2026-01-12
 
 - [x] Create docs/agents/ directory
 - [x] Create AGENTS.md with project context
-- [ ] Create CHANGELOG in docs/ for the released versions
+- [x] Create CHANGELOG in docs/ for the tagged versions
 
 ## Chores
