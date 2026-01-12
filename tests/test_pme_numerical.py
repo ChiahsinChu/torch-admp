@@ -158,6 +158,7 @@ class TestOBCCoulombForceModule(unittest.TestCase):
             )
         )
 
+
 class TestPBCCoulombForceModule(unittest.TestCase):
     def setUp(self) -> None:
         self.ref_system = TestOpenMMSimulation()
@@ -253,6 +254,7 @@ class TestPBCCoulombForceModule(unittest.TestCase):
                 atol=1e-4,
             )
         )
+
 
 class TestPBCSlabCorrCoulombForceModule(unittest.TestCase):
     def setUp(self) -> None:

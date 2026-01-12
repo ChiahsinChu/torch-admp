@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """
 BaseForceModule
 """
-from typing import Dict, Optional
+
 import unittest
+from typing import Dict, Optional
 
 import torch
 

@@ -323,7 +323,3 @@ class TestQEqForceModule(unittest.TestCase):
         self.assertAlmostEqual(
             0.5 * np.inner(np.matmul(charges, hessian), charges), (e1 + e2).item()
         )
-
-
-if __name__ == "__main__":
-    unittest.main()

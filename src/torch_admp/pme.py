@@ -42,6 +42,7 @@ class CoulombForceModule(BaseForceModule):
         slab_corr: bool = False,
         slab_axis: int = 2,
         units_dict: Optional[Dict] = None,
+        sel: list[int] = [],
         kappa: Optional[float] = None,
         spacing: Optional[List[float]] = None,
     ) -> None:
@@ -91,9 +92,13 @@ class CoulombForceModule(BaseForceModule):
         )
 
         self.rcut = rcut
+        self.sel = sel
 
     def get_rcut(self) -> float:
         return self.rcut
+
+    def get_sel(self):
+        return self.sel
 
     def _forward_impl(
         self,
@@ -133,14 +138,12 @@ class CoulombForceModule(BaseForceModule):
             Scalar energy tensor for single system or (nframes,) for batched systems
             representing the total Coulomb energy.
         """
-        # Convert units
-        positions = positions * self.const_lib.length_coeff
-        ds = ds * self.const_lib.length_coeff
         # nframes, natoms,
-        charges = params["charge"].reshape(positions.size(0), positions.size(1))
+        nf = positions.size(0)
+        na = positions.size(1)
+        charges = params["charge"].reshape(nf, na)
 
         if box is not None:
-            box = box * self.const_lib.length_coeff
             energy = self._forward_pbc(
                 charges, positions, box, pairs, ds, buffer_scales
             )
@@ -187,12 +190,17 @@ class CoulombForceModule(BaseForceModule):
         qi = torch.gather(charges, 1, pairs[:, :, 0])
         qj = torch.gather(charges, 1, pairs[:, :, 1])
 
-        e_sr = torch.sum(
-            torch.erfc(self.kappa * ds)
-            * qi
-            * qj
-            * safe_inverse(ds, threshold=1e-4)
-            * buffer_scales, dim=-1) * self.const_lib.dielectric
+        e_sr = (
+            torch.sum(
+                torch.erfc(self.kappa * ds)
+                * qi
+                * qj
+                * safe_inverse(ds, threshold=1e-4)
+                * buffer_scales,
+                dim=-1,
+            )
+            * self.const_lib.dielectric
+        )
         return e_sr
 
     def _forward_pbc_reciprocal(
@@ -242,21 +250,27 @@ class CoulombForceModule(BaseForceModule):
                 torch.sum(
                     bspline(m + self.pme_order / 2)
                     * torch.cos(
-                        2 * torch.pi * m * kpts_int[None] / self.kmesh[ii].reshape(1, 1, 3)
+                        2
+                        * torch.pi
+                        * m
+                        * kpts_int[None]
+                        / self.kmesh[ii].reshape(1, 1, 3)
                     ),
                     dim=0,
                 ),
                 dim=1,
             )
-            
+
             S_k = torch.fft.fftn(meshed_charges).flatten()
             if not gamma_flag:
                 coeff_k = coeff_k_func(kpts[3, 1:], self.kappa, volume[ii])
-                E_k = coeff_k * ((S_k[1:].real ** 2 + S_k[1:].imag ** 2) / theta_k[1:] ** 2)
+                E_k = coeff_k * (
+                    (S_k[1:].real ** 2 + S_k[1:].imag ** 2) / theta_k[1:] ** 2
+                )
             else:
                 coeff_k = coeff_k_func(kpts[3, :], self.kappa, volume[ii])
                 E_k = coeff_k * ((S_k.real**2 + S_k.imag**2) / theta_k**2)
-            # return 
+            # return
             all_ener.append(torch.sum(E_k) * self.const_lib.dielectric)
         return torch.stack(all_ener)
 

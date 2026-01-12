@@ -42,25 +42,25 @@ class GaussianDampingForceModule(BaseForceModule):
         Parameters
         ----------
         positions : torch.Tensor
-            Atomic positions with shape (natoms, 3). Each row contains the
-            x, y, z coordinates of an atom.
+            Atomic positions with shape (nframes, natoms, 3). Each frame contains
+            the x, y, z coordinates of all atoms.
         box : torch.Tensor
-            Simulation box vectors with shape (3, 3). Each row represents a
-            box vector. Required for periodic boundary conditions.
+            Simulation box vectors with shape (nframes, 3, 3). Each frame contains three
+            box vectors. Required for periodic boundary conditions.
         pairs : torch.Tensor
-            Tensor of atom pairs with shape (n_pairs, 2). Each row contains
+            Tensor of atom pairs with shape (nframes, n_pairs, 2). Each frame contains
             the indices of two atoms that form a pair.
         ds : torch.Tensor
-            Distance tensor with shape (n_pairs,). Contains the distances
-            between atom pairs specified in the pairs tensor.
+            Distance tensor with shape (nframes, n_pairs). Contains the distances
+            between atom pairs specified in the pairs tensor for each frame.
         buffer_scales : torch.Tensor
-            Buffer scales for each pair with shape (n_pairs,). Contains values
+            Buffer scales for each pair with shape (nframes, n_pairs). Contains values
             of 1 if i < j else 0 for each pair, used for buffer management.
         params : Dict[str, torch.Tensor]
             Dictionary of parameters for the Gaussian damping model:
             {
-                "charge": t_charges, # atomic charges with shape (natoms,)
-                "eta": t_eta, # Gaussian width in length unit with shape (natoms,)
+                "charge": t_charges, # atomic charges with shape (nframes, natoms,),
+                "eta": t_eta, # Gaussian width in length unit with shape (nframes, natoms,),
             }
 
         Returns
@@ -68,38 +68,29 @@ class GaussianDampingForceModule(BaseForceModule):
         energy: torch.Tensor
             Scalar energy tensor representing the total Gaussian damping energy.
         """
-        return self.forward_lower(
-            charges=params["charge"],
-            eta=params["eta"],
-            pairs=pairs,
-            ds=ds,
-            buffer_scales=buffer_scales,
-        )
+        # nframes, natoms,
+        nf = positions.size(0)
+        na = positions.size(1)
+        charges = params["charge"].reshape(nf, na)
+        eta = params["eta"].reshape(nf, na) * self.const_lib.length_coeff
 
-    def forward_lower(
-        self,
-        charges: torch.Tensor,
-        eta: torch.Tensor,
-        pairs: torch.Tensor,
-        ds: torch.Tensor,
-        buffer_scales: torch.Tensor,
-    ) -> torch.Tensor:
-        eta = eta * self.const_lib.length_coeff
-        ds = ds * self.const_lib.length_coeff
-
-        q_i = charges[pairs[:, 0]].reshape(-1)
-        q_j = charges[pairs[:, 1]].reshape(-1)
-
-        eta_ij = torch.sqrt((eta[pairs[:, 0]] ** 2 + eta[pairs[:, 1]] ** 2) * 2)
+        # nf, np
+        eta_i = torch.gather(eta, 1, pairs[:, :, 0])
+        eta_j = torch.gather(eta, 1, pairs[:, :, 0])
+        eta_ij = torch.sqrt((eta_i**2 + eta_j**2) * 2)
         # avoid nan when calculating grad if eta_ij is zero
         eta_ij = torch.where(eta_ij == 0, 1e-10, eta_ij)
         pre_pair = -torch.erfc(ds / eta_ij)
+        # nf, np
+        qi = torch.gather(charges, 1, pairs[:, :, 0])
+        qj = torch.gather(charges, 1, pairs[:, :, 1])
         e_sr_pair = torch.sum(
-            pre_pair * q_i * q_j * safe_inverse(ds, threshold=1e-4) * buffer_scales
+            pre_pair * qi * qj * safe_inverse(ds, threshold=1e-4) * buffer_scales,
+            dim=-1,
         )
 
         pre_self = safe_inverse(eta, threshold=1e-4) / (2 * self.const_lib.sqrt_pi)
-        e_sr_self = torch.sum(pre_self * charges * charges)
+        e_sr_self = torch.sum(pre_self * charges * charges, dim=-1)
 
         e_sr = (e_sr_pair + e_sr_self) * self.const_lib.dielectric
         # eV to user-defined energy unit
@@ -154,18 +145,14 @@ class SiteForceModule(BaseForceModule):
         energy: torch.Tensor
             Scalar energy tensor representing the total chemical site energy.
         """
-        return self.forward_lower(params["chi"], params["hardness"], params["charge"])
-
-    def forward_lower(
-        self,
-        chi: torch.Tensor,
-        hardness: torch.Tensor,
-        charges: torch.Tensor,
-    ):
-        chi = chi * self.const_lib.energy_coeff
-        hardness = hardness * self.const_lib.energy_coeff
+        # nframes, natoms,
+        nf = positions.size(0)
+        na = positions.size(1)
+        chi = params["chi"].reshape(nf, na) * self.const_lib.energy_coeff
+        hardness = params["hardness"].reshape(nf, na) * self.const_lib.energy_coeff
+        charges = params["charge"].reshape(nf, na)
         e = chi * charges + hardness * charges**2
-        return torch.sum(e) / self.const_lib.energy_coeff
+        return torch.sum(e, dim=-1) / self.const_lib.energy_coeff
 
 
 class QEqForceModule(BaseForceModule):
@@ -211,7 +198,7 @@ class QEqForceModule(BaseForceModule):
         eps: float = 1e-4,
         units_dict: Optional[Dict] = None,
         damping: bool = True,
-        sel: list[int] = None,
+        sel: list[int] = [],
         kappa: Optional[float] = None,
         spacing: Optional[List[float]] = None,
     ) -> None:
@@ -294,9 +281,18 @@ class QEqForceModule(BaseForceModule):
         energy: torch.Tensor
             Scalar energy tensor representing the total QEq energy.
         """
-        energy = torch.zeros(1, device=positions.device)
+        # nframes, natoms,
+        nf = positions.size(0)
+        energy = torch.zeros(nf, device=positions.device)
         for model in self.submodels.values():
-            energy = energy + model(positions, box, pairs, ds, buffer_scales, params)
+            energy = energy + model(
+                positions,
+                box,
+                pairs,
+                ds,
+                buffer_scales,
+                params,
+            )
         return energy
 
     @torch.jit.export

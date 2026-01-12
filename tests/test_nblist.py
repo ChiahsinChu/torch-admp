@@ -102,7 +102,3 @@ class TestNBList(unittest.TestCase):
         )
         torch.testing.assert_close(sort_pairs(pairs_1), sort_pairs(pairs_2))
         torch.testing.assert_close(torch.sort(ds_1)[0], torch.sort(ds_2)[0])
-
-
-if __name__ == "__main__":
-    unittest.main()

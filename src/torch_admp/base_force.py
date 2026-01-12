@@ -100,15 +100,17 @@ class BaseForceModule(torch.nn.Module, ABC):
             ds,
             buffer_scales,
         )
+        nf = _positions.size(0)
+        _params = {k: v.reshape(nf, -1) for k, v in params.items()}
 
         # Call the implementation in subclasses
         return self._forward_impl(
-            _positions,
-            _box,
+            _positions * self.const_lib.length_coeff,
+            _box * self.const_lib.length_coeff if _box is not None else None,
             _pairs,
-            _ds,
+            _ds * self.const_lib.length_coeff,
             _buffer_scales,
-            params,
+            _params,
         )
 
     @abstractmethod
@@ -187,8 +189,6 @@ class BaseForceModule(torch.nn.Module, ABC):
             Distance tensor with shape (n_pairs,) or (nframes, n_pairs)
         buffer_scales : torch.Tensor
             Buffer scales with shape (n_pairs,) or (nframes, n_pairs)
-        charges : torch.Tensor
-            Atomic charges with shape (natoms,) or (nframes, natoms)
 
         Returns
         -------

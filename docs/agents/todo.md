@@ -15,7 +15,6 @@ last_updated: 2026-01-12
 - [ ] change required shapes of input tensors by adding the dimension of nframes
 - [ ] support multi-batch in PME and require single batch for others
 
-
 ### Polarizable electrode
 
 - [ ] check numerical uncertainty of polarizable electrode and reduce the tolerance in `tests/test_electrode.py`

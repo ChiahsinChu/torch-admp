@@ -132,7 +132,9 @@ class FDTest:
                 self.calculator(**self.input_dict), self.input_dict[test_kw]
             )
             rf_grad = to_numpy_array(rf_grad)
-            np.testing.assert_almost_equal(fd_grad, rf_grad, decimal=places)
+            np.testing.assert_almost_equal(
+                fd_grad.reshape(-1), rf_grad.reshape(-1), decimal=places
+            )
 
 
 class TestGradCoulombForceModule(unittest.TestCase, FDTest):
