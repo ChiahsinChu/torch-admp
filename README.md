@@ -2,7 +2,7 @@
 
 [![codecov](https://codecov.io/gh/ChiahsinChu/torch_admp/graph/badge.svg?token=9PXNT5XB7C)](https://codecov.io/gh/ChiahsinChu/torch_admp)
 
-> torch version of ADMP is initialized by [Zheng Cheng](https://github.com/zhengcheng233) (AISI).
+> torch version of ADMP is initialized by [Zheng Cheng](https://github.com/zhengcheng233/dmff_torch) (AISI).
 
 This package implements the PME method (for monopoles) and the QEq method in [DMFF](https://github.com/deepmodeling/DMFF) with PyTorch, allowing not only GPU-accelerated calculation of PME/QEq methods but also further customization and extension of other PyTorch-based models.
 
