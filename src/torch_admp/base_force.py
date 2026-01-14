@@ -104,11 +104,13 @@ class BaseForceModule(torch.nn.Module, ABC):
         _params = {k: v.reshape(nf, -1) for k, v in params.items()}
 
         # Call the implementation in subclasses
+        # Use getattr to explicitly access the tensor and avoid type checker issues
+        length_coeff = getattr(self.const_lib, "length_coeff")
         return self._forward_impl(
-            _positions * self.const_lib.length_coeff,
-            _box * self.const_lib.length_coeff if _box is not None else None,
+            _positions * length_coeff,
+            _box * length_coeff if _box is not None else None,
             _pairs,
-            _ds * self.const_lib.length_coeff,
+            _ds * length_coeff,
             _buffer_scales,
             _params,
         )

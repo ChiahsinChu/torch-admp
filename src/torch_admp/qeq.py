@@ -72,7 +72,7 @@ class GaussianDampingForceModule(BaseForceModule):
         nf = positions.size(0)
         na = positions.size(1)
         charges = params["charge"].reshape(nf, na)
-        eta = params["eta"].reshape(nf, na) * self.const_lib.length_coeff
+        eta = params["eta"].reshape(nf, na) * getattr(self.const_lib, "length_coeff")
 
         # nf, np
         eta_i = torch.gather(eta, 1, pairs[:, :, 0])
@@ -89,12 +89,14 @@ class GaussianDampingForceModule(BaseForceModule):
             dim=-1,
         )
 
-        pre_self = safe_inverse(eta, threshold=1e-4) / (2 * self.const_lib.sqrt_pi)
+        pre_self = safe_inverse(eta, threshold=1e-4) / (
+            2 * getattr(self.const_lib, "sqrt_pi")
+        )
         e_sr_self = torch.sum(pre_self * charges * charges, dim=-1)
 
-        e_sr = (e_sr_pair + e_sr_self) * self.const_lib.dielectric
+        e_sr = (e_sr_pair + e_sr_self) * getattr(self.const_lib, "dielectric")
         # eV to user-defined energy unit
-        return e_sr / self.const_lib.energy_coeff
+        return e_sr / getattr(self.const_lib, "energy_coeff")
 
 
 class SiteForceModule(BaseForceModule):
@@ -148,11 +150,13 @@ class SiteForceModule(BaseForceModule):
         # nframes, natoms,
         nf = positions.size(0)
         na = positions.size(1)
-        chi = params["chi"].reshape(nf, na) * self.const_lib.energy_coeff
-        hardness = params["hardness"].reshape(nf, na) * self.const_lib.energy_coeff
+        chi = params["chi"].reshape(nf, na) * getattr(self.const_lib, "energy_coeff")
+        hardness = params["hardness"].reshape(nf, na) * getattr(
+            self.const_lib, "energy_coeff"
+        )
         charges = params["charge"].reshape(nf, na)
         e = chi * charges + hardness * charges**2
-        return torch.sum(e, dim=-1) / self.const_lib.energy_coeff
+        return torch.sum(e, dim=-1) / getattr(self.const_lib, "energy_coeff")
 
 
 class QEqForceModule(BaseForceModule):

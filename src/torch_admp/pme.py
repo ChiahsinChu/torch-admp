@@ -54,7 +54,7 @@ class CoulombForceModule(BaseForceModule):
         else:
             if self.kspace_flag:
                 kappa = math.sqrt(-math.log(2 * ethresh)) / rcut
-                self.kappa = kappa / self.const_lib.length_coeff
+                self.kappa = kappa / getattr(self.const_lib, "length_coeff")
             else:
                 self.kappa = 0.0
         self.ethresh = ethresh
@@ -149,7 +149,7 @@ class CoulombForceModule(BaseForceModule):
             )
         else:
             energy = self._forward_obc(charges, pairs, ds, buffer_scales)
-        return energy / self.const_lib.energy_coeff
+        return energy / getattr(self.const_lib, "energy_coeff")
 
     def _forward_pbc(
         self,
@@ -190,17 +190,14 @@ class CoulombForceModule(BaseForceModule):
         qi = torch.gather(charges, 1, pairs[:, :, 0])
         qj = torch.gather(charges, 1, pairs[:, :, 1])
 
-        e_sr = (
-            torch.sum(
-                torch.erfc(self.kappa * ds)
-                * qi
-                * qj
-                * safe_inverse(ds, threshold=1e-4)
-                * buffer_scales,
-                dim=-1,
-            )
-            * self.const_lib.dielectric
-        )
+        e_sr = torch.sum(
+            torch.erfc(self.kappa * ds)
+            * qi
+            * qj
+            * safe_inverse(ds, threshold=1e-4)
+            * buffer_scales,
+            dim=-1,
+        ) * getattr(self.const_lib, "dielectric")
         return e_sr
 
     def _forward_pbc_reciprocal(
@@ -212,7 +209,7 @@ class CoulombForceModule(BaseForceModule):
         device = positions.device
         nf = positions.size(0)
 
-        box_inv = torch.linalg.inv(box)
+        box_inv = torch.inverse(box)
         volume = torch.det(box)
         box_diag = torch.diagonal(box, dim1=1, dim2=2)
         if self.spacing is not None:
@@ -271,7 +268,7 @@ class CoulombForceModule(BaseForceModule):
                 coeff_k = coeff_k_func(kpts[3, :], self.kappa, volume[ii])
                 E_k = coeff_k * ((S_k.real**2 + S_k.imag**2) / theta_k**2)
             # return
-            all_ener.append(torch.sum(E_k) * self.const_lib.dielectric)
+            all_ener.append(torch.sum(E_k) * getattr(self.const_lib, "dielectric"))
         return torch.stack(all_ener)
 
     def _forward_pbc_self(
@@ -282,8 +279,10 @@ class CoulombForceModule(BaseForceModule):
         -\frac{\alpha}{\sqrt{\pi}} \sum_{i} q_i^2
         """
         if self.kspace_flag:
-            coeff = self.kappa / self.const_lib.sqrt_pi
-            return -torch.sum(coeff * charges**2, dim=-1) * self.const_lib.dielectric
+            coeff = self.kappa / getattr(self.const_lib, "sqrt_pi")
+            return -torch.sum(coeff * charges**2, dim=-1) * getattr(
+                self.const_lib, "dielectric"
+            )
         else:
             return torch.zeros(charges.size(0), device=charges.device)
 
@@ -297,9 +296,9 @@ class CoulombForceModule(BaseForceModule):
         Q_tot = torch.sum(charges, dim=-1)
 
         coeff = (
-            -self.const_lib.pi
+            -getattr(self.const_lib, "pi")
             / (2 * volume * self.kappa**2)
-            * self.const_lib.dielectric
+            * getattr(self.const_lib, "dielectric")
         )
         e_corr_non = coeff * Q_tot**2
         return e_corr_non
@@ -317,13 +316,18 @@ class CoulombForceModule(BaseForceModule):
         E = \frac{2\pi}{V} \varepsilon \left( M_z^2 - Q_{\text{tot}} \sum_i q_i z_i + \frac{Q_{\text{tot}}^2 L_z^2}{12} \right)
         """
         volume = torch.det(box)
-        pre_corr = 2 * self.const_lib.pi / volume * self.const_lib.dielectric
+        pre_corr = (
+            2
+            * getattr(self.const_lib, "pi")
+            / volume
+            * getattr(self.const_lib, "dielectric")
+        )
         # dipole moment in axis direction
         Mz = torch.sum(charges * positions[:, :, self.slab_axis], dim=-1)
         # total charge
         Q_tot = torch.sum(charges, dim=-1)
         # length of the box in axis direction
-        Lz = torch.linalg.norm(box[:, self.slab_axis], dim=-1)
+        Lz = torch.norm(box[:, self.slab_axis], dim=-1)
 
         e_corr = pre_corr * (
             Mz**2
@@ -331,7 +335,7 @@ class CoulombForceModule(BaseForceModule):
             * (torch.sum(charges * positions[:, :, self.slab_axis] ** 2, dim=-1))
             - torch.pow(Q_tot, 2) * torch.pow(Lz, 2) / 12
         )
-        return torch.sum(e_corr) / self.const_lib.energy_coeff
+        return torch.sum(e_corr) / getattr(self.const_lib, "energy_coeff")
 
     def _forward_obc(
         self,
@@ -344,9 +348,9 @@ class CoulombForceModule(BaseForceModule):
         qi = torch.gather(charges, 1, pairs[:, :, 0])
         qj = torch.gather(charges, 1, pairs[:, :, 1])
         ds_inv = safe_inverse(ds)
-        E_inter = qi * qj * self.const_lib.dielectric * ds_inv
+        E_inter = qi * qj * getattr(self.const_lib, "dielectric") * ds_inv
         coul_energy = torch.sum(E_inter * buffer_scales, dim=-1)
-        return coul_energy / self.const_lib.energy_coeff
+        return coul_energy / getattr(self.const_lib, "energy_coeff")
 
 
 def setup_ewald_parameters(

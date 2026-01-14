@@ -351,5 +351,115 @@ class TestPBCSlabCorrCoulombForceModule(unittest.TestCase):
         )
 
 
-if __name__ == "__main__":
-    unittest.main()
+class TestCoulombForceModule(unittest.TestCase):
+    """Test cases to improve coverage of CoulombForceModule"""
+
+    def setUp(self) -> None:
+        # Setup for getter tests
+        self.module = CoulombForceModule(rcut=5.0, ethresh=1e-5, sel=[10, 20])
+
+        # Setup for edge case tests
+        self.n_atoms = 10
+        self.positions = torch.rand(1, self.n_atoms, 3) * 10.0
+        self.box = torch.diag(torch.tensor([10.0, 10.0, 10.0])).unsqueeze(0)
+        self.charges = torch.randn(1, self.n_atoms)
+
+        self.nblist = TorchNeighborList(cutoff=4.0)
+        self.pairs = self.nblist(
+            self.positions.squeeze(0), self.box.squeeze(0)
+        ).unsqueeze(0)
+        self.ds = self.nblist.get_ds().unsqueeze(0)
+        self.buffer_scales = self.nblist.get_buffer_scales().unsqueeze(0)
+
+    def test_get_rcut(self):
+        """Test get_rcut method (line 98)"""
+        self.assertEqual(self.module.get_rcut(), 5.0)
+
+    def test_get_sel(self):
+        """Test get_sel method (line 101)"""
+        self.assertEqual(self.module.get_sel(), [10, 20])
+
+    def test_kspace_false(self):
+        """Test _forward_pbc_self when kspace_flag is False (line 288)"""
+        module = CoulombForceModule(rcut=5.0, ethresh=1e-5, kspace=False)
+        module(
+            self.positions,
+            self.box,
+            self.pairs,
+            self.ds,
+            self.buffer_scales,
+            {"charge": self.charges},
+        )
+        # Verify that self_energy is zero when kspace_flag is False
+        self.assertEqual(module.self_energy.item(), 0.0)
+        self.assertEqual(module.reciprocal_energy.item(), 0.0)
+
+    def test_setup_ewald_parameters_openmm(self):
+        """Test setup_ewald_parameters with openmm method (lines 388-443)"""
+        from torch_admp.pme import setup_ewald_parameters
+
+        box = np.diag([10.0, 10.0, 10.0])
+        kappa, kx, ky, kz = setup_ewald_parameters(
+            rcut=5.0, box=box, threshold=1e-5, method="openmm"
+        )
+
+        # Verify that parameters are reasonable
+        self.assertGreater(kappa, 0)
+        self.assertGreaterEqual(kx, 1)
+        self.assertGreaterEqual(ky, 1)
+        self.assertGreaterEqual(kz, 1)
+
+    def test_setup_ewald_parameters_gromacs(self):
+        """Test setup_ewald_parameters with gromacs method (lines 388-443)"""
+        from torch_admp.pme import setup_ewald_parameters
+
+        box = np.diag([10.0, 10.0, 10.0])
+        kappa, kx, ky, kz = setup_ewald_parameters(
+            rcut=5.0, box=box, threshold=1e-5, spacing=1.0, method="gromacs"
+        )
+
+        # Verify that parameters are reasonable
+        self.assertGreater(kappa, 0)
+        self.assertGreaterEqual(kx, 1)
+        self.assertGreaterEqual(ky, 1)
+        self.assertGreaterEqual(kz, 1)
+
+    def test_setup_ewald_parameters_no_box(self):
+        """Test setup_ewald_parameters with no box (lines 388-443)"""
+        from torch_admp.pme import setup_ewald_parameters
+
+        kappa, kx, ky, kz = setup_ewald_parameters(rcut=5.0, box=None)
+
+        # Should return default values
+        self.assertEqual(kappa, 0.1)
+        self.assertEqual(kx, 1)
+        self.assertEqual(ky, 1)
+        self.assertEqual(kz, 1)
+
+    def test_setup_ewald_parameters_invalid_method(self):
+        """Test setup_ewald_parameters with invalid method (lines 388-443)"""
+        from torch_admp.pme import setup_ewald_parameters
+
+        box = np.diag([10.0, 10.0, 10.0])
+
+        with self.assertRaises(ValueError):
+            setup_ewald_parameters(rcut=5.0, box=box, threshold=1e-5, method="invalid")
+
+    def test_setup_ewald_parameters_gromacs_no_spacing(self):
+        """Test setup_ewald_parameters with gromacs method but no spacing (lines 388-443)"""
+        from torch_admp.pme import setup_ewald_parameters
+
+        box = np.diag([10.0, 10.0, 10.0])
+
+        with self.assertRaises(AssertionError):
+            setup_ewald_parameters(rcut=5.0, box=box, threshold=1e-5, method="gromacs")
+
+    def test_setup_ewald_parameters_non_orthogonal_box(self):
+        """Test setup_ewald_parameters with non-orthogonal box (lines 388-443)"""
+        from torch_admp.pme import setup_ewald_parameters
+
+        # Create a non-orthogonal box
+        box = np.array([[10.0, 1.0, 0.0], [0.0, 10.0, 0.0], [0.0, 0.0, 10.0]])
+
+        with self.assertRaises(AssertionError):
+            setup_ewald_parameters(rcut=5.0, box=box, threshold=1e-5, method="openmm")

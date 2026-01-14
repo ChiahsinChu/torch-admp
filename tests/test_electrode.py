@@ -120,7 +120,12 @@ class LAMMPSReferenceDataTest:
         filename : str
             Name of the CSV file to write
         """
-        with open(filename, mode="a", newline="") as file:
+        with open(
+            filename,
+            mode="a",
+            newline="",
+            encoding="utf-8",
+        ) as file:
             writer = csv.writer(file)
             writer.writerow(["Index", "Difference"])
             for i, diff in enumerate(data):
