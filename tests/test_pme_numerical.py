@@ -10,9 +10,12 @@ from openmm import app
 from openmm.unit import angstrom
 from scipy import constants
 
+from torch_admp.env import DEVICE
 from torch_admp.nblist import TorchNeighborList
 from torch_admp.pme import CoulombForceModule
 from torch_admp.utils import calc_grads, to_numpy_array
+
+from . import SEED
 
 # torch.set_default_dtype(torch.float64)
 
@@ -24,6 +27,9 @@ energy_coeff = (
 )
 # kJ/(mol nm) to eV/particle/A
 force_coeff = energy_coeff * constants.angstrom / constants.nano
+# Set random generators with SEED for reproducibility
+np_rng = np.random.default_rng(SEED)
+torch_rng = torch.Generator(device=DEVICE).manual_seed(SEED)
 
 
 class TestOpenMMSimulation:
@@ -33,9 +39,9 @@ class TestOpenMMSimulation:
         self.ethresh = 1e-6
         self.n_atoms = 100
 
-        self.charges = np.random.uniform(-1.0, 1.0, (self.n_atoms))
+        self.charges = np_rng.uniform(-1.0, 1.0, (self.n_atoms))
         self.charges -= self.charges.mean()
-        self.positions = np.random.rand(self.n_atoms, 3) * self.l_box
+        self.positions = np_rng.random((self.n_atoms, 3)) * self.l_box
 
     def setup(self, real_space=True):
         self.system = mm.System()
@@ -341,9 +347,9 @@ class TestCoulombForceModule(unittest.TestCase):
 
         # Setup for edge case tests
         self.n_atoms = 10
-        self.positions = torch.rand(1, self.n_atoms, 3) * 10.0
+        self.positions = torch.rand(1, self.n_atoms, 3, generator=torch_rng) * 10.0
         self.box = torch.diag(torch.tensor([10.0, 10.0, 10.0])).unsqueeze(0)
-        self.charges = torch.randn(1, self.n_atoms)
+        self.charges = torch.randn(1, self.n_atoms, generator=torch_rng)
 
         self.nblist = TorchNeighborList(cutoff=4.0)
         self.pairs = self.nblist(

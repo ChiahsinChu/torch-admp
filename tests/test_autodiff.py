@@ -13,10 +13,9 @@ import torch
 from torch_admp.pme import CoulombForceModule
 from torch_admp.utils import calc_grads
 
+from . import SEED
 from .deepmd.pt.utils import env
 from .deepmd.pt.utils.utils import to_numpy_array, to_torch_tensor
-
-from . import SEED
 
 dtype = torch.float64
 

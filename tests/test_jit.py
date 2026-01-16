@@ -18,6 +18,8 @@ from torch_admp.pme import CoulombForceModule
 from torch_admp.qeq import GaussianDampingForceModule, QEqForceModule, SiteForceModule
 from torch_admp.utils import calc_grads, to_numpy_array
 
+from . import SEED
+
 # torch.set_default_dtype(torch.float64)
 
 rcut = 4.0
@@ -41,12 +43,16 @@ class JITTest:
         Compares energy and gradient outputs from JIT-compiled modules
         with those from regular PyTorch modules to ensure correctness.
         """
-        positions = np.random.rand(n_atoms, 3) * l_box
+        # Set random generators with SEED for reproducibility
+        np_rng = np.random.default_rng(SEED)
+        # torch_rng = torch.Generator().manual_seed(SEED)
+
+        positions = np_rng.random((n_atoms, 3)) * l_box
         if self.periodic:
             box = np.diag([l_box, l_box, l_box])
         else:
             box = None
-        charges = np.random.uniform(-1.0, 1.0, (n_atoms))
+        charges = np_rng.uniform(-1.0, 1.0, (n_atoms))
         charges -= charges.mean()
 
         positions = torch.tensor(positions, requires_grad=True).to(DEVICE)

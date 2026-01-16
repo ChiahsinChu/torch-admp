@@ -15,6 +15,8 @@ import torch
 from torch_admp.nblist import TorchNeighborList, dp_nblist, sort_pairs, vesin_nblist
 from torch_admp.utils import to_numpy_array
 
+from . import SEED
+
 
 class TestTorchNeighborList(unittest.TestCase):
     """Test class for TorchNeighborList functionality.
@@ -29,11 +31,15 @@ class TestTorchNeighborList(unittest.TestCase):
         Creates reference neighbor list data using freud and initializes
         TorchNeighborList with test positions and box.
         """
+        # Set random generators with SEED for reproducibility
+        np_rng = np.random.default_rng(SEED)
+        # torch_rng = torch.Generator().manual_seed(SEED)
+
         # reference data
         rcut = 4.0
         l_box = 10.0
         box = np.diag([l_box, l_box, l_box])
-        positions = np.random.rand(20, 3) * l_box
+        positions = np_rng.random((20, 3)) * l_box
 
         fbox = freud.box.Box.from_matrix(box)
         aq = freud.locality.AABBQuery(fbox, positions)
@@ -76,10 +82,14 @@ class TestNBList(unittest.TestCase):
         Creates random atomic positions in a periodic box and initializes
         parameters for neighbor list testing.
         """
+        # Set random generators with SEED for reproducibility
+        np_rng = np.random.default_rng(SEED)
+        # torch_rng = torch.Generator().manual_seed(SEED)
+
         # reference data
         l_box = 10.0
         box = np.diag([l_box, l_box, l_box])
-        positions = np.random.rand(100, 3) * l_box
+        positions = np_rng.random((100, 3)) * l_box
 
         self.positions = torch.tensor(positions)
         self.box = torch.tensor(box)
