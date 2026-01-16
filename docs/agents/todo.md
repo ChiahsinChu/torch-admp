@@ -8,12 +8,27 @@ last_updated: 2026-01-12
 
 ## Features
 
+### Support batch inference
+
+- [x] update docstrings for `BaseForceModule` and its derived classes, and specify the shape of input tensors
+- [x] add shape verification for forward methods in for `BaseForceModule` and its derived classes
+- [x] change required shapes of input tensors by adding the dimension of nframes
+- [x] support multi-batch in PME
+- [x] support multi-batch in QEq
+- [ ] reintroduce polarizable electrode module with batch support
+- [ ] add numerical uncertainty tests for polarizable electrode
+
+### constant Q with finite field (blocked by electrode reintroduction)
+
+- [ ] implement ffield with conq
+- [ ] add electrode tests for ConqInterface3DBIAS
+
 ## Documentation
 
 ### Set up Basic Vibe Coding Structure
 
 - [x] Create docs/agents/ directory
 - [x] Create AGENTS.md with project context
-- [ ] Create CHANGELOG in docs/ for the released versions
+- [x] Create CHANGELOG in docs/ for the tagged versions
 
 ## Chores

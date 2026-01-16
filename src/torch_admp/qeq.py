@@ -22,13 +22,25 @@ from torch_admp.utils import (
 
 
 class GaussianDampingForceModule(BaseForceModule):
+    """
+    Gaussian short-range damping force module.
+
+    This module implements the Gaussian damping function used in charge equilibration
+    to account for short-range electrostatic interactions.
+
+    Parameters
+    ----------
+    units_dict : Optional[Dict], optional
+        Dictionary containing unit conversion factors, by default None
+    """
+
     def __init__(
         self,
         units_dict: Optional[Dict] = None,
     ) -> None:
         BaseForceModule.__init__(self, units_dict)
 
-    def forward(
+    def _forward_impl(
         self,
         positions: torch.Tensor,
         box: Optional[torch.Tensor],
@@ -42,72 +54,83 @@ class GaussianDampingForceModule(BaseForceModule):
         Parameters
         ----------
         positions : torch.Tensor
-            atomic positions
+            Atomic positions with shape (nframes, natoms, 3). Each frame contains
+            the x, y, z coordinates of all atoms.
         box : torch.Tensor
-            simulation box
+            Simulation box vectors with shape (nframes, 3, 3). Each frame contains three
+            box vectors. Required for periodic boundary conditions.
         pairs : torch.Tensor
-            n_pairs * 2 tensor of pairs
+            Tensor of atom pairs with shape (nframes, n_pairs, 2). Each frame contains
+            the indices of two atoms that form a pair.
         ds : torch.Tensor
-            i-j distance tensor
+            Distance tensor with shape (nframes, n_pairs). Contains the distances
+            between atom pairs specified in the pairs tensor for each frame.
         buffer_scales : torch.Tensor
-            buffer scales for each pair, 1 if i < j else 0
+            Buffer scales for each pair with shape (nframes, n_pairs). Contains values
+            of 1 if i < j else 0 for each pair, used for buffer management.
         params : Dict[str, torch.Tensor]
+            Dictionary of parameters for the Gaussian damping model:
             {
-                "charge": t_charges, # atomic charges
-                "eta": t_eta, # Gaussian width in length unit
+                "charge": t_charges, # atomic charges with shape (nframes, natoms,),
+                "eta": t_eta, # Gaussian width in length unit with shape (nframes, natoms,),
             }
 
         Returns
         -------
         energy: torch.Tensor
-            energy tensor
+            Scalar energy tensor representing the total Gaussian damping energy.
         """
-        return self.forward_lower(
-            charges=params["charge"],
-            eta=params["eta"],
-            pairs=pairs,
-            ds=ds,
-            buffer_scales=buffer_scales,
-        )
+        # nframes, natoms,
+        nf = positions.size(0)
+        na = positions.size(1)
+        charges = params["charge"].reshape(nf, na)
+        eta = params["eta"].reshape(nf, na) * getattr(self.const_lib, "length_coeff")
 
-    def forward_lower(
-        self,
-        charges: torch.Tensor,
-        eta: torch.Tensor,
-        pairs: torch.Tensor,
-        ds: torch.Tensor,
-        buffer_scales: torch.Tensor,
-    ) -> torch.Tensor:
-        eta = eta * self.const_lib.length_coeff
-        ds = ds * self.const_lib.length_coeff
-
-        q_i = charges[pairs[:, 0]].reshape(-1)
-        q_j = charges[pairs[:, 1]].reshape(-1)
-
-        eta_ij = torch.sqrt((eta[pairs[:, 0]] ** 2 + eta[pairs[:, 1]] ** 2) * 2)
+        # nf, np
+        eta_i = torch.gather(eta, 1, pairs[:, :, 0])
+        eta_j = torch.gather(eta, 1, pairs[:, :, 1])
+        eta_ij = torch.sqrt((eta_i**2 + eta_j**2) * 2)
         # avoid nan when calculating grad if eta_ij is zero
         eta_ij = torch.where(eta_ij == 0, 1e-10, eta_ij)
         pre_pair = -torch.erfc(ds / eta_ij)
+        # nf, np
+        qi = torch.gather(charges, 1, pairs[:, :, 0])
+        qj = torch.gather(charges, 1, pairs[:, :, 1])
         e_sr_pair = torch.sum(
-            pre_pair * q_i * q_j * safe_inverse(ds, threshold=1e-4) * buffer_scales
+            pre_pair * qi * qj * safe_inverse(ds, threshold=1e-4) * buffer_scales,
+            dim=-1,
         )
 
-        pre_self = safe_inverse(eta, threshold=1e-4) / (2 * self.const_lib.sqrt_pi)
-        e_sr_self = torch.sum(pre_self * charges * charges)
+        pre_self = safe_inverse(eta, threshold=1e-4) / (
+            2 * getattr(self.const_lib, "sqrt_pi")
+        )
+        e_sr_self = torch.sum(pre_self * charges * charges, dim=-1)
 
-        e_sr = (e_sr_pair + e_sr_self) * self.const_lib.dielectric
+        e_sr = (e_sr_pair + e_sr_self) * getattr(self.const_lib, "dielectric")
         # eV to user-defined energy unit
-        return e_sr / self.const_lib.energy_coeff
+        return e_sr / getattr(self.const_lib, "energy_coeff")
 
 
 class SiteForceModule(BaseForceModule):
+    """
+    Chemical site energy force module.
+
+    This module implements the chemical site energy term in charge equilibration,
+    accounting for electronegativity and hardness of atomic sites.
+
+    Parameters
+    ----------
+    units_dict : Optional[Dict], optional
+        Dictionary containing unit conversion factors, by default None
+    """
+
     def __init__(
         self,
         units_dict: Optional[Dict] = None,
     ) -> None:
         BaseForceModule.__init__(self, units_dict)
 
-    def forward(
+    def _forward_impl(
         self,
         positions: torch.Tensor,
         box: Optional[torch.Tensor],
@@ -121,39 +144,43 @@ class SiteForceModule(BaseForceModule):
         Parameters
         ----------
         positions : torch.Tensor
-            atomic positions
-        box : torch.Tensor
-            simulation box
+            Atomic positions with shape (nframes, natoms, 3). Each frame contains
+            the x, y, z coordinates of all atoms.
+        box : Optional[torch.Tensor]
+            Simulation box vectors with shape (nframes, 3, 3) or None if input was None.
+            Each frame contains three box vectors. Required for periodic boundary conditions.
         pairs : torch.Tensor
-            n_pairs * 2 tensor of pairs
+            Tensor of atom pairs with shape (nframes, n_pairs, 2). Each frame contains
+            the indices of two atoms that form a pair.
         ds : torch.Tensor
-            i-j distance tensor
+            Distance tensor with shape (nframes, n_pairs). Contains the distances
+            between atom pairs specified in the pairs tensor for each frame.
         buffer_scales : torch.Tensor
-            buffer scales for each pair, 1 if i < j else 0
+            Buffer scales for each pair with shape (nframes, n_pairs). Contains values
+            of 1 if i < j else 0 for each pair, used for buffer management.
         params : Dict[str, torch.Tensor]
+            Dictionary of parameters for the chemical site model:
             {
-                "charge": t_charges, # atomic charges
-                "chi": t_chi, # eletronegativity in energy / charge unit
-                "hardness": t_hardness, # atomic hardness in energy / charge^2 unit
+                "charge": t_charges, # atomic charges with shape (nframes, natoms,)
+                "chi": t_chi, # electronegativity in energy/charge unit with shape (nframes, natoms,)
+                "hardness": t_hardness, # atomic hardness in energy/charge^2 unit with shape (nframes, natoms,)
             }
 
         Returns
         -------
         energy: torch.Tensor
-            energy tensor
+            Scalar energy tensor representing the total chemical site energy.
         """
-        return self.forward_lower(params["chi"], params["hardness"], params["charge"])
-
-    def forward_lower(
-        self,
-        chi: torch.Tensor,
-        hardness: torch.Tensor,
-        charges: torch.Tensor,
-    ):
-        chi = chi * self.const_lib.energy_coeff
-        hardness = hardness * self.const_lib.energy_coeff
+        # nframes, natoms,
+        nf = positions.size(0)
+        na = positions.size(1)
+        chi = params["chi"].reshape(nf, na) * getattr(self.const_lib, "energy_coeff")
+        hardness = params["hardness"].reshape(nf, na) * getattr(
+            self.const_lib, "energy_coeff"
+        )
+        charges = params["charge"].reshape(nf, na)
         e = chi * charges + hardness * charges**2
-        return torch.sum(e) / self.const_lib.energy_coeff
+        return torch.sum(e, dim=-1) / getattr(self.const_lib, "energy_coeff")
 
 
 class QEqForceModule(BaseForceModule):
@@ -199,7 +226,7 @@ class QEqForceModule(BaseForceModule):
         eps: float = 1e-4,
         units_dict: Optional[Dict] = None,
         damping: bool = True,
-        sel: list[int] = None,
+        sel: Optional[list[int]] = None,
         kappa: Optional[float] = None,
         spacing: Optional[List[float]] = None,
     ) -> None:
@@ -237,10 +264,10 @@ class QEqForceModule(BaseForceModule):
     def get_rcut(self) -> float:
         return self.rcut
 
-    def get_sel(self):
+    def get_sel(self) -> Optional[list[int]]:
         return self.sel
 
-    def forward(
+    def _forward_impl(
         self,
         positions: torch.Tensor,
         box: Optional[torch.Tensor],
@@ -254,31 +281,46 @@ class QEqForceModule(BaseForceModule):
         Parameters
         ----------
         positions : torch.Tensor
-            atomic positions
-        box : torch.Tensor
-            simulation box
+            Atomic positions with shape (nframes, natoms, 3). Each frame contains
+            the x, y, z coordinates of all atoms.
+        box : Optional[torch.Tensor]
+            Simulation box vectors with shape (nframes, 3, 3) or None if input was None.
+            Each frame contains three box vectors. Required for periodic boundary conditions.
         pairs : torch.Tensor
-            n_pairs * 2 tensor of pairs
+            Tensor of atom pairs with shape (nframes, n_pairs, 2). Each frame contains
+            the indices of two atoms that form a pair.
         ds : torch.Tensor
-            i-j distance tensor
+            Distance tensor with shape (nframes, n_pairs). Contains the distances
+            between atom pairs specified in the pairs tensor for each frame.
         buffer_scales : torch.Tensor
-            buffer scales for each pair, 1 if i < j else 0
+            Buffer scales for each pair with shape (nframes, n_pairs). Contains values
+            of 1 if i < j else 0 for each pair, used for buffer management.
         params : Dict[str, torch.Tensor]
+            Dictionary of parameters for the QEq model:
             {
-                "charge": t_charges, # (optional) initial guess for atomic charges,
-                "chi": t_chi, # eletronegativity in energy / charge unit
-                "hardness": t_hardness, # atomic hardness in energy / charge^2 unit
-                "eta": t_eta, # Gaussian width in length unit
+                "charge": t_charges, # (optional) initial guess for atomic charges with shape (nframes, natoms,),
+                "chi": t_chi, # electronegativity in energy/charge unit with shape (nframes, natoms,),
+                "hardness": t_hardness, # atomic hardness in energy/charge^2 unit with shape (nframes, natoms,),
+                "eta": t_eta, # Gaussian width in length unit with shape (nframes, natoms,)
             }
 
         Returns
         -------
         energy: torch.Tensor
-            energy tensor
+            Scalar energy tensor representing the total QEq energy.
         """
-        energy = torch.zeros(1, device=positions.device)
+        # nframes, natoms,
+        nf = positions.size(0)
+        energy = torch.zeros(nf, device=positions.device)
         for model in self.submodels.values():
-            energy = energy + model(positions, box, pairs, ds, buffer_scales, params)
+            energy = energy + model._forward_impl(
+                positions,
+                box,
+                pairs,
+                ds,
+                buffer_scales,
+                params,
+            )
         return energy
 
     @torch.jit.export

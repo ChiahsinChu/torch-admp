@@ -28,6 +28,11 @@ from torch_admp.utils import (
     vector_projection_coeff_matrix,
 )
 
+from . import SEED
+
+# Generator with a fixed seed for reproducibility
+rng = np.random.default_rng(seed=SEED)
+
 
 class JaxTestData:
     def __init__(self):
@@ -35,9 +40,9 @@ class JaxTestData:
         self.l_box = 20.0
         self.n_atoms = 100
 
-        charges = np.random.uniform(-1.0, 1.0, (self.n_atoms))
+        charges = rng.uniform(-1.0, 1.0, (self.n_atoms))
         self.charges = charges - charges.mean()
-        self.positions = np.random.rand(self.n_atoms, 3) * self.l_box
+        self.positions = rng.random((self.n_atoms, 3)) * self.l_box
         self.box = np.diag([self.l_box, self.l_box, self.l_box])
         self.chi = np.ones(self.n_atoms)
         self.hardness = np.zeros(self.n_atoms)
@@ -92,10 +97,19 @@ class TestGaussianDampingForceModule(unittest.TestCase, JaxTestData):
         force_jax = -jax_out[1] * self.energy_coeff
 
         # energy [eV]
-        self.assertAlmostEqual(ener_pt.item(), ener_jax, places=5)
+        np.testing.assert_allclose(
+            to_numpy_array(ener_pt),
+            ener_jax,
+            atol=1e-6,
+            rtol=1e-6,
+        )
         # force [eV/A]
-        diff = to_numpy_array(force_pt).reshape(-1, 3) - force_jax.reshape(-1, 3)
-        self.assertTrue(np.abs(diff).max() < 5e-4)
+        np.testing.assert_allclose(
+            to_numpy_array(force_pt).reshape(-1, 3),
+            force_jax.reshape(-1, 3),
+            atol=1e-6,
+            rtol=1e-6,
+        )
 
 
 @unittest.skipIf(not DMFF_AVAILABLE, "dmff package not installed")
@@ -134,7 +148,12 @@ class TestSiteForceModule(unittest.TestCase, JaxTestData):
         )
 
         # energy [eV]
-        self.assertAlmostEqual(ener_pt.item(), ener_jax, places=5)
+        np.testing.assert_allclose(
+            to_numpy_array(ener_pt),
+            ener_jax,
+            atol=1e-6,
+            rtol=1e-6,
+        )
 
 
 @unittest.skipIf(not DMFF_AVAILABLE, "dmff package not installed")
@@ -146,16 +165,18 @@ class TestQEqForceModule(unittest.TestCase):
     def setUp(self) -> None:
         self.rcut = 5.0
         self.l_box = 20.0
-        self.ethresh = 1e-5
+        self.ethresh = 1e-6
         self.n_atoms = 100
 
-        self.positions = torch.rand(self.n_atoms, 3, requires_grad=True) * self.l_box
+        positions = rng.random((self.n_atoms, 3)) * self.l_box
+        self.positions = torch.tensor(positions, requires_grad=True)
         self.box = torch.tensor(np.diag([self.l_box, self.l_box, self.l_box]))
-        charges = np.random.uniform(-1.0, 1.0, (self.n_atoms))
+        charges = rng.uniform(-1.0, 1.0, (self.n_atoms))
         charges -= charges.mean()
         self.charges = torch.tensor(charges, requires_grad=True)
 
-        self.chi = torch.rand(self.n_atoms)
+        chi = rng.random((self.n_atoms,))
+        self.chi = torch.tensor(chi)
         self.hardness = torch.zeros(self.n_atoms)
         self.eta = torch.ones(self.n_atoms) * 0.5
 
@@ -165,7 +186,7 @@ class TestQEqForceModule(unittest.TestCase):
 
         self.module_matinv = QEqForceModule(self.rcut, self.ethresh)
         self.module_pgrad = QEqForceModule(
-            self.rcut, self.ethresh, eps=1e-5, max_iter=100
+            self.rcut, self.ethresh, eps=1e-6, ls_eps=1e-6, max_iter=100
         )
         self.jit_module = torch.jit.script(self.module_pgrad)
 
@@ -220,33 +241,26 @@ class TestQEqForceModule(unittest.TestCase):
             assert (pgrad.norm() / n_atoms).item() < self.module_pgrad.eps
 
             # energy [eV]
-            self.assertTrue(np.abs(out_matinv[0].item() - out_pgrad[0].item()) < 1e-5)
+            np.testing.assert_allclose(
+                to_numpy_array(out_matinv[0]),
+                to_numpy_array(out_pgrad[0]),
+                atol=1e-6,
+                rtol=1e-6,
+            )
             # force [eV/A]
-            diff = forces_matinv - forces_pgrad
-            self.assertTrue(diff.abs().max().item() < 1e-4)
-            # rmse = torch.sqrt(torch.mean((diff) ** 2))
-            # print(rmse)
-            # print(diff.max(), diff.min())
-            # self.assertTrue(
-            #     np.allclose(
-            #         torch.Tensor.numpy(forces_matinv, force=True).reshape(-1, 3),
-            #         torch.Tensor.numpy(forces_pgrad, force=True).reshape(-1, 3),
-            #         atol=1e-4,
-            #     )
-            # )
+            np.testing.assert_allclose(
+                to_numpy_array(forces_matinv),
+                to_numpy_array(forces_pgrad),
+                atol=5e-6,
+                rtol=5e-6,
+            )
             # charge [e]
-            diff = out_matinv[1] - out_pgrad[1]
-            self.assertTrue(diff.abs().max().item() < 5e-4)
-            # rmse = torch.sqrt(torch.mean((diff) ** 2))
-            # print(rmse)
-            # print(diff.max(), diff.min())
-            # self.assertTrue(
-            #     np.allclose(
-            #         torch.Tensor.numpy(out_matinv[1], force=True),
-            #         torch.Tensor.numpy(out_pgrad[1], force=True),
-            #         atol=1e-3,
-            #     )
-            # )
+            np.testing.assert_allclose(
+                to_numpy_array(out_matinv[1]),
+                to_numpy_array(out_pgrad[1]),
+                atol=5e-6,
+                rtol=5e-6,
+            )
 
         for method in ["lbfgs", "quadratic"]:
             out_jit = pgrad_optimize(
@@ -277,18 +291,31 @@ class TestQEqForceModule(unittest.TestCase):
             assert (pgrad.norm() / n_atoms).item() < self.jit_module.eps
 
             # energy [eV]
-            self.assertTrue(np.abs(out_matinv[0].item() - out_jit[0].item()) < 1e-5)
+            np.testing.assert_allclose(
+                to_numpy_array(out_matinv[0]),
+                to_numpy_array(out_jit[0]),
+                atol=1e-6,
+                rtol=1e-6,
+            )
             # force [eV/A]
-            diff = forces_matinv - forces_jit
-            self.assertTrue(diff.abs().max().item() < 1e-4)
+            np.testing.assert_allclose(
+                to_numpy_array(forces_matinv),
+                to_numpy_array(forces_jit),
+                atol=5e-6,
+                rtol=5e-6,
+            )
             # charge [e]
-            diff = out_matinv[1] - out_jit[1]
-            self.assertTrue(diff.abs().max().item() < 1e-4)
+            np.testing.assert_allclose(
+                to_numpy_array(out_matinv[1]),
+                to_numpy_array(out_jit[1]),
+                atol=5e-6,
+                rtol=5e-6,
+            )
 
     def test_hessian(self):
-        n_atoms = self.positions.shape[0]
-        charges = torch.rand(n_atoms)
+        charges = rng.uniform(-1.0, 1.0, (self.n_atoms))
         charges -= charges.mean()
+        charges = torch.tensor(charges)
 
         params = {
             "charge": charges,
@@ -318,12 +345,9 @@ class TestQEqForceModule(unittest.TestCase):
             self.positions, self.box, pairs, ds, buffer_scales, params
         )
 
-        hessian = hessian.detach().cpu().numpy()
-        charges = charges.detach().cpu().numpy()
-        self.assertAlmostEqual(
-            0.5 * np.inner(np.matmul(charges, hessian), charges), (e1 + e2).item()
+        hessian = to_numpy_array(hessian)
+        charges = to_numpy_array(charges)
+        np.testing.assert_allclose(
+            0.5 * np.inner(np.matmul(charges, hessian), charges),
+            to_numpy_array(e1 + e2),
         )
-
-
-if __name__ == "__main__":
-    unittest.main()

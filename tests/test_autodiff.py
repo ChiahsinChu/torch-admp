@@ -13,10 +13,9 @@ import torch
 from torch_admp.pme import CoulombForceModule
 from torch_admp.utils import calc_grads
 
+from . import SEED
 from .deepmd.pt.utils import env
 from .deepmd.pt.utils.utils import to_numpy_array, to_torch_tensor
-
-SEED = 1
 
 dtype = torch.float64
 
@@ -132,7 +131,9 @@ class FDTest:
                 self.calculator(**self.input_dict), self.input_dict[test_kw]
             )
             rf_grad = to_numpy_array(rf_grad)
-            np.testing.assert_almost_equal(fd_grad, rf_grad, decimal=places)
+            np.testing.assert_almost_equal(
+                fd_grad.reshape(-1), rf_grad.reshape(-1), decimal=places
+            )
 
 
 class TestGradCoulombForceModule(unittest.TestCase, FDTest):

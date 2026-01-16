@@ -1,4 +1,12 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
+"""
+Environment configuration for torch-admp.
+
+This module sets up the global environment variables and configurations used throughout
+the torch-admp package, including precision settings, device configuration, and
+precision mapping dictionaries.
+"""
+
 import os
 
 import ml_dtypes

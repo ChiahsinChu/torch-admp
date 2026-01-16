@@ -1,4 +1,12 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
+"""
+Spatial operations for torch-admp.
+
+This module provides spatial operations and utilities for molecular simulations,
+including periodic boundary condition handling, distance calculations, and
+coordinate transformations.
+"""
+
 from typing import Optional
 
 import torch
@@ -21,7 +29,7 @@ def pbc_shift(positions: torch.Tensor, box: torch.Tensor) -> torch.Tensor:
     wrapped_positions: torch.Tensor
         N * 3, wrapped positions
     """
-    # box_inv = torch.inverse(box + torch.eye(3, device=positions.device) * 1e-36)
+    # box_inv = torch.linalg.inv(box + torch.eye(3, device=positions.device) * 1e-36)
     box_inv = torch.linalg.inv(box)
     unshifted_positions = torch.matmul(positions, box_inv)
     wrapped_positions = unshifted_positions - torch.floor(unshifted_positions + 0.5)
@@ -35,6 +43,25 @@ def ds_pairs(
     box: Optional[torch.Tensor] = None,
     pbc_flag: bool = True,
 ) -> torch.Tensor:
+    """
+    Calculate distances between atom pairs.
+
+    Parameters
+    ----------
+    positions : torch.Tensor
+        N * 3, positions of particles
+    pairs : torch.Tensor
+        M * 2, atom pair indices
+    box : Optional[torch.Tensor], optional
+        3 * 3, box vectors arranged in rows, by default None
+    pbc_flag : bool, optional
+        Whether to apply periodic boundary conditions, by default True
+
+    Returns
+    -------
+    torch.Tensor
+        M, distances between atom pairs
+    """
     indices = torch.tile(pairs[:, 0].reshape(-1, 1), [1, 3])
     pos1 = torch.gather(positions, 0, indices)
     indices = torch.tile(pairs[:, 1].reshape(-1, 1), [1, 3])
@@ -52,8 +79,9 @@ def build_quasi_internal(
     r1: torch.Tensor, r2: torch.Tensor, dr: torch.Tensor, norm_dr: torch.Tensor
 ) -> torch.Tensor:
     """
-    Build the quasi-internal frame between a pair of sites
-    In this frame, the z-axis is pointing from r2 to r1
+    Build the quasi-internal frame between a pair of sites.
+
+    In this frame, the z-axis is pointing from r2 to r1.
 
     Parameters
     ----------
@@ -68,7 +96,7 @@ def build_quasi_internal(
 
     Returns
     -------
-    local_frames:
+    torch.Tensor
         N * 3 * 3: local frames, three axes arranged in rows
     """
     # n x 3

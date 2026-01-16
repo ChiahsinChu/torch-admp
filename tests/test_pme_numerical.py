@@ -10,9 +10,12 @@ from openmm import app
 from openmm.unit import angstrom
 from scipy import constants
 
+from torch_admp.env import DEVICE
 from torch_admp.nblist import TorchNeighborList
 from torch_admp.pme import CoulombForceModule
 from torch_admp.utils import calc_grads, to_numpy_array
+
+from . import SEED
 
 # torch.set_default_dtype(torch.float64)
 
@@ -24,18 +27,21 @@ energy_coeff = (
 )
 # kJ/(mol nm) to eV/particle/A
 force_coeff = energy_coeff * constants.angstrom / constants.nano
+# Set random generators with SEED for reproducibility
+np_rng = np.random.default_rng(SEED)
+torch_rng = torch.Generator(device=DEVICE).manual_seed(SEED)
 
 
 class TestOpenMMSimulation:
     def __init__(self) -> None:
         self.rcut = 5.0
         self.l_box = 20.0
-        self.ethresh = 1e-5
+        self.ethresh = 5e-6
         self.n_atoms = 100
 
-        self.charges = np.random.uniform(-1.0, 1.0, (self.n_atoms))
+        self.charges = np_rng.uniform(-1.0, 1.0, (self.n_atoms))
         self.charges -= self.charges.mean()
-        self.positions = np.random.rand(self.n_atoms, 3) * self.l_box
+        self.positions = np_rng.random((self.n_atoms, 3)) * self.l_box
 
     def setup(self, real_space=True):
         self.system = mm.System()
@@ -95,13 +101,17 @@ class TestOBCCoulombForceModule(unittest.TestCase):
         self.box = None
         charges = atoms.get_initial_charges()
 
-        self.positions = torch.tensor(positions, requires_grad=True)
+        _positions = torch.tensor(positions, requires_grad=True)
         self.charges = torch.tensor(charges)
+        self.positions = _positions.unsqueeze(0)
 
         self.nblist = TorchNeighborList(cutoff=4.0)
-        self.pairs = self.nblist(self.positions, self.box)
-        self.ds = self.nblist.get_ds()
-        self.buffer_scales = self.nblist.get_buffer_scales()
+        self.pairs = self.nblist(
+            self.positions.squeeze(0),
+            self.box,
+        ).unsqueeze(0)
+        self.ds = self.nblist.get_ds().unsqueeze(0)
+        self.buffer_scales = self.nblist.get_buffer_scales().unsqueeze(0)
 
         self.module = CoulombForceModule(rcut=5.0, ethresh=1e-5)
         # test jit-able
@@ -136,23 +146,21 @@ class TestOBCCoulombForceModule(unittest.TestCase):
         jit_forces = -calc_grads(jit_energy, self.positions)
 
         # energy [eV]
-        self.assertAlmostEqual(energy.item(), ref_energy, places=5)
-        self.assertAlmostEqual(jit_energy.item(), ref_energy, places=5)
+        for e in [energy, jit_energy]:
+            np.testing.assert_allclose(
+                to_numpy_array(e),
+                [ref_energy],
+                atol=1e-6,
+                rtol=1e-6,
+            )
         # force [eV/A]
-        self.assertTrue(
-            np.allclose(
-                to_numpy_array(forces).reshape(-1, 3),
+        for f in [forces, jit_forces]:
+            np.testing.assert_allclose(
+                to_numpy_array(f).reshape(-1, 3),
                 ref_forces,
-                atol=1e-5,
+                atol=1e-6,
+                rtol=1e-6,
             )
-        )
-        self.assertTrue(
-            np.allclose(
-                to_numpy_array(jit_forces).reshape(-1, 3),
-                ref_forces,
-                atol=1e-5,
-            )
-        )
 
 
 class TestPBCCoulombForceModule(unittest.TestCase):
@@ -160,18 +168,23 @@ class TestPBCCoulombForceModule(unittest.TestCase):
         self.ref_system = TestOpenMMSimulation()
         self.ref_system.setup(real_space=True)
 
-        self.positions = torch.tensor(self.ref_system.positions, requires_grad=True)
-        self.charges = torch.tensor(self.ref_system.charges)
-        self.box = torch.tensor(
+        _positions = torch.tensor(self.ref_system.positions, requires_grad=True)
+        self.charges = torch.tensor(self.ref_system.charges).unsqueeze(0)
+        _box = torch.tensor(
             np.diag(
                 [self.ref_system.l_box, self.ref_system.l_box, self.ref_system.l_box]
             )
         )
+        self.positions = _positions.unsqueeze(0)
+        self.box = _box.unsqueeze(0)
 
         self.nblist = TorchNeighborList(cutoff=self.ref_system.rcut)
-        self.pairs = self.nblist(self.positions, self.box)
-        self.ds = self.nblist.get_ds()
-        self.buffer_scales = self.nblist.get_buffer_scales()
+        self.pairs = self.nblist(
+            self.positions.squeeze(0),
+            self.box.squeeze(0),
+        ).unsqueeze(0)
+        self.ds = self.nblist.get_ds().unsqueeze(0)
+        self.buffer_scales = self.nblist.get_buffer_scales().unsqueeze(0)
 
         self.module = CoulombForceModule(
             rcut=self.ref_system.rcut,
@@ -204,9 +217,9 @@ class TestPBCCoulombForceModule(unittest.TestCase):
         # A^-1 to nm^-1 for kappa
         nonbonded.setPMEParameters(
             self.module.kappa * 10.0,
-            self.module.kmesh[0].item(),
-            self.module.kmesh[1].item(),
-            self.module.kmesh[2].item(),
+            self.module.kmesh[0, 0].item(),
+            self.module.kmesh[0, 1].item(),
+            self.module.kmesh[0, 2].item(),
         )
         # simulation = self.ref_system.simulation
         # ewald_params = nonbonded.getPMEParametersInContext(simulation.context)
@@ -215,45 +228,21 @@ class TestPBCCoulombForceModule(unittest.TestCase):
         ref_energy, ref_forces = self.ref_system.run()
 
         # energy [eV]
-        self.assertTrue(
-            np.isclose(
-                energy.item(),
-                ref_energy,
-                atol=1e-4,
+        for e in [energy, jit_energy]:
+            np.testing.assert_allclose(
+                to_numpy_array(e),
+                [ref_energy],
+                atol=1e-5,
+                rtol=1e-5,
             )
-        )
-        self.assertTrue(
-            np.isclose(
-                jit_energy.item(),
-                ref_energy,
-                atol=1e-4,
-            )
-        )
         # force [eV/A]
-        self.assertTrue(
-            np.allclose(
-                to_numpy_array(forces).reshape(-1, 3),
+        for f in [forces, jit_forces]:
+            np.testing.assert_allclose(
+                to_numpy_array(f).reshape(-1, 3),
                 ref_forces,
-                atol=1e-4,
+                atol=1e-5,
+                rtol=1e-5,
             )
-        )
-        self.assertTrue(
-            np.allclose(
-                to_numpy_array(jit_forces).reshape(-1, 3),
-                ref_forces,
-                atol=1e-4,
-            )
-        )
-
-        # self.ref_system.setup(real_space=False)
-        # ref_energy_reciprocal, ref_forces_reciprocal = self.ref_system.run()
-        # print(ref_energy - ref_energy_reciprocal)
-        # print(self.module.real_energy)
-
-        # print("non-neutral energy: ", self.module.non_neutral_energy)
-        # print("reciprocal")
-        # print(ref_energy_reciprocal)
-        # print((self.module.reciprocal_energy + self.module.self_energy).item())
 
 
 class TestPBCSlabCorrCoulombForceModule(unittest.TestCase):
@@ -266,42 +255,18 @@ class TestPBCSlabCorrCoulombForceModule(unittest.TestCase):
         box = atoms.get_cell().array
         charges = atoms.get_initial_charges()
 
-        self.positions = torch.tensor(positions, requires_grad=True)
-        self.box = torch.tensor(box)
-        self.charges = torch.tensor(charges)
+        _positions = torch.tensor(positions, requires_grad=True)
+        _box = torch.tensor(box)
+        self.charges = torch.tensor(charges).unsqueeze(0)
+        self.positions = _positions.unsqueeze(0)
+        self.box = _box.unsqueeze(0)
 
         self.nblist = TorchNeighborList(cutoff=4.0)
-        self.pairs = self.nblist(self.positions, self.box)
-        self.ds = self.nblist.get_ds()
-        self.buffer_scales = self.nblist.get_buffer_scales()
-
-    # def make_ref_data(self, axis: int):
-    #     atoms = io.read(
-    #         str(Path(__file__).parent / "data/lmp_coul_pbc/system.data"),
-    #         format="lammps-data",
-    #     )
-    #     positions = atoms.get_positions()
-    #     box = atoms.get_cell()
-    #     charges = atoms.get_initial_charges()
-
-    #     self.dipole = np.sum(
-    #         positions * charges[:, None], axis=0
-    #     )
-    #     self.tot_charge = np.sum(charges)
-
-    #     dipole = self.dipole[axis]
-    #     z = positions[:, axis]
-
-    #     volume = atoms.get_volume()
-    #     epsilon = constants.epsilon_0 / constants.elementary_charge * constants.angstrom
-    #     coeff = 2 * np.pi / volume / (4 * np.pi * epsilon)
-    #     e = (
-    #         dipole**2
-    #         - self.tot_charge * np.sum(charges * z**2)
-    #         + self.tot_charge**2 * box[axis, axis]**2 / 12
-    #     )
-    #     e *= coeff
-    #     return e
+        self.pairs = self.nblist(
+            self.positions.squeeze(0), self.box.squeeze(0)
+        ).unsqueeze(0)
+        self.ds = self.nblist.get_ds().unsqueeze(0)
+        self.buffer_scales = self.nblist.get_buffer_scales().unsqueeze(0)
 
     def lammps_ref_data(self):
         e1 = np.loadtxt(
@@ -356,24 +321,132 @@ class TestPBCSlabCorrCoulombForceModule(unittest.TestCase):
         ref_energy, ref_forces = self.lammps_ref_data()
 
         # energy [eV]
-        self.assertAlmostEqual(energy.item(), ref_energy, places=5)
-        self.assertAlmostEqual(jit_energy.item(), ref_energy, places=5)
+        for e in [energy, jit_energy]:
+            np.testing.assert_allclose(
+                to_numpy_array(e),
+                [ref_energy],
+                atol=1e-6,
+                rtol=1e-6,
+            )
         # force [eV/A]
-        self.assertTrue(
-            np.allclose(
-                to_numpy_array(forces).reshape(-1, 3),
+        for f in [forces, jit_forces]:
+            np.testing.assert_allclose(
+                to_numpy_array(f).reshape(-1, 3),
                 ref_forces,
-                atol=1e-4,
+                atol=1e-6,
+                rtol=1e-6,
             )
-        )
-        self.assertTrue(
-            np.allclose(
-                to_numpy_array(jit_forces).reshape(-1, 3),
-                ref_forces,
-                atol=1e-4,
-            )
-        )
 
 
-if __name__ == "__main__":
-    unittest.main()
+class TestCoulombForceModule(unittest.TestCase):
+    """Test cases to improve coverage of CoulombForceModule"""
+
+    def setUp(self) -> None:
+        # Setup for getter tests
+        self.module = CoulombForceModule(rcut=5.0, ethresh=1e-5, sel=[10, 20])
+
+        # Setup for edge case tests
+        self.n_atoms = 10
+        self.positions = torch.rand(1, self.n_atoms, 3, generator=torch_rng) * 10.0
+        self.box = torch.diag(torch.tensor([10.0, 10.0, 10.0])).unsqueeze(0)
+        self.charges = torch.randn(1, self.n_atoms, generator=torch_rng)
+
+        self.nblist = TorchNeighborList(cutoff=4.0)
+        self.pairs = self.nblist(
+            self.positions.squeeze(0), self.box.squeeze(0)
+        ).unsqueeze(0)
+        self.ds = self.nblist.get_ds().unsqueeze(0)
+        self.buffer_scales = self.nblist.get_buffer_scales().unsqueeze(0)
+
+    def test_get_rcut(self):
+        """Test get_rcut method (line 98)"""
+        self.assertEqual(self.module.get_rcut(), 5.0)
+
+    def test_get_sel(self):
+        """Test get_sel method (line 101)"""
+        self.assertEqual(self.module.get_sel(), [10, 20])
+
+    def test_kspace_false(self):
+        """Test _forward_pbc_self when kspace_flag is False (line 288)"""
+        module = CoulombForceModule(rcut=5.0, ethresh=1e-5, kspace=False)
+        module(
+            self.positions,
+            self.box,
+            self.pairs,
+            self.ds,
+            self.buffer_scales,
+            {"charge": self.charges},
+        )
+        # Verify that self_energy is zero when kspace_flag is False
+        self.assertEqual(module.self_energy.item(), 0.0)
+        self.assertEqual(module.reciprocal_energy.item(), 0.0)
+
+    def test_setup_ewald_parameters_openmm(self):
+        """Test setup_ewald_parameters with openmm method (lines 388-443)"""
+        from torch_admp.pme import setup_ewald_parameters
+
+        box = np.diag([10.0, 10.0, 10.0])
+        kappa, kx, ky, kz = setup_ewald_parameters(
+            rcut=5.0, box=box, threshold=1e-5, method="openmm"
+        )
+
+        # Verify that parameters are reasonable
+        self.assertGreater(kappa, 0)
+        self.assertGreaterEqual(kx, 1)
+        self.assertGreaterEqual(ky, 1)
+        self.assertGreaterEqual(kz, 1)
+
+    def test_setup_ewald_parameters_gromacs(self):
+        """Test setup_ewald_parameters with gromacs method (lines 388-443)"""
+        from torch_admp.pme import setup_ewald_parameters
+
+        box = np.diag([10.0, 10.0, 10.0])
+        kappa, kx, ky, kz = setup_ewald_parameters(
+            rcut=5.0, box=box, threshold=1e-5, spacing=1.0, method="gromacs"
+        )
+
+        # Verify that parameters are reasonable
+        self.assertGreater(kappa, 0)
+        self.assertGreaterEqual(kx, 1)
+        self.assertGreaterEqual(ky, 1)
+        self.assertGreaterEqual(kz, 1)
+
+    def test_setup_ewald_parameters_no_box(self):
+        """Test setup_ewald_parameters with no box (lines 388-443)"""
+        from torch_admp.pme import setup_ewald_parameters
+
+        kappa, kx, ky, kz = setup_ewald_parameters(rcut=5.0, box=None)
+
+        # Should return default values
+        self.assertEqual(kappa, 0.1)
+        self.assertEqual(kx, 1)
+        self.assertEqual(ky, 1)
+        self.assertEqual(kz, 1)
+
+    def test_setup_ewald_parameters_invalid_method(self):
+        """Test setup_ewald_parameters with invalid method (lines 388-443)"""
+        from torch_admp.pme import setup_ewald_parameters
+
+        box = np.diag([10.0, 10.0, 10.0])
+
+        with self.assertRaises(ValueError):
+            setup_ewald_parameters(rcut=5.0, box=box, threshold=1e-5, method="invalid")
+
+    def test_setup_ewald_parameters_gromacs_no_spacing(self):
+        """Test setup_ewald_parameters with gromacs method but no spacing (lines 388-443)"""
+        from torch_admp.pme import setup_ewald_parameters
+
+        box = np.diag([10.0, 10.0, 10.0])
+
+        with self.assertRaises(AssertionError):
+            setup_ewald_parameters(rcut=5.0, box=box, threshold=1e-5, method="gromacs")
+
+    def test_setup_ewald_parameters_non_orthogonal_box(self):
+        """Test setup_ewald_parameters with non-orthogonal box (lines 388-443)"""
+        from torch_admp.pme import setup_ewald_parameters
+
+        # Create a non-orthogonal box
+        box = np.array([[10.0, 1.0, 0.0], [0.0, 10.0, 0.0], [0.0, 0.0, 10.0]])
+
+        with self.assertRaises(AssertionError):
+            setup_ewald_parameters(rcut=5.0, box=box, threshold=1e-5, method="openmm")
