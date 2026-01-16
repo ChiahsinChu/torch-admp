@@ -11,12 +11,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.2] - 2026-01-16
 
 ### Added
 
-- Basic documentation structure with Vibe Coding support
-- CHANGELOG documentation for version tracking
+- Batch inference support for PME and QEq modules
+- Enhanced BaseForceModule with standardized input tensor handling
+- Shape verification for forward methods in BaseForceModule and derived classes
+- Comprehensive documentation updates for tensor shapes and batch processing
+
+### Changed
+
+- Converted PME (Particle Mesh Ewald) to support batch inference
+- Converted QEq (Charge Equilibration) to support batch inference
+- Updated docstrings to specify tensor shapes for batch processing
+- Improved test tolerance settings for numerical tests
+- Temporarily removed polarizable electrode module (will be re-added in future release)
+
+### Fixed
+
+- Improved numerical stability in batch processing
+- Enhanced error handling for tensor shape validation
 
 ## [1.1.1] - 2026-01-08
 
