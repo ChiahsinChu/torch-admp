@@ -30,7 +30,7 @@ class TestOpenMMSimulation:
     def __init__(self) -> None:
         self.rcut = 5.0
         self.l_box = 20.0
-        self.ethresh = 1e-5
+        self.ethresh = 1e-6
         self.n_atoms = 100
 
         self.charges = np.random.uniform(-1.0, 1.0, (self.n_atoms))
@@ -140,23 +140,21 @@ class TestOBCCoulombForceModule(unittest.TestCase):
         jit_forces = -calc_grads(jit_energy, self.positions)
 
         # energy [eV]
-        self.assertAlmostEqual(energy.item(), ref_energy, places=5)
-        self.assertAlmostEqual(jit_energy.item(), ref_energy, places=5)
+        for e in [energy, jit_energy]:
+            np.isclose(
+                to_numpy_array(e),
+                ref_energy,
+                atol=1e-6,
+                rtol=1e-6,
+            )
         # force [eV/A]
-        self.assertTrue(
+        for f in [forces, jit_forces]:
             np.allclose(
-                to_numpy_array(forces).reshape(-1, 3),
+                to_numpy_array(f).reshape(-1, 3),
                 ref_forces,
-                atol=1e-5,
+                atol=1e-6,
+                rtol=1e-6,
             )
-        )
-        self.assertTrue(
-            np.allclose(
-                to_numpy_array(jit_forces).reshape(-1, 3),
-                ref_forces,
-                atol=1e-5,
-            )
-        )
 
 
 class TestPBCCoulombForceModule(unittest.TestCase):
@@ -188,7 +186,6 @@ class TestPBCCoulombForceModule(unittest.TestCase):
         )
         # test jit-able
         self.jit_module = torch.jit.script(self.module)
-        # self.jit_module = self.module
 
     def test_numerical(self):
         energy = self.module(
@@ -225,35 +222,21 @@ class TestPBCCoulombForceModule(unittest.TestCase):
         ref_energy, ref_forces = self.ref_system.run()
 
         # energy [eV]
-        self.assertTrue(
+        for e in [energy, jit_energy]:
             np.isclose(
-                energy.item(),
+                to_numpy_array(e),
                 ref_energy,
-                atol=1e-4,
+                atol=1e-6,
+                rtol=1e-6,
             )
-        )
-        self.assertTrue(
-            np.isclose(
-                jit_energy.item(),
-                ref_energy,
-                atol=1e-4,
-            )
-        )
         # force [eV/A]
-        self.assertTrue(
+        for f in [forces, jit_forces]:
             np.allclose(
-                to_numpy_array(forces).reshape(-1, 3),
+                to_numpy_array(f).reshape(-1, 3),
                 ref_forces,
-                atol=1e-4,
+                atol=1e-6,
+                rtol=1e-6,
             )
-        )
-        self.assertTrue(
-            np.allclose(
-                to_numpy_array(jit_forces).reshape(-1, 3),
-                ref_forces,
-                atol=1e-4,
-            )
-        )
 
 
 class TestPBCSlabCorrCoulombForceModule(unittest.TestCase):
@@ -332,23 +315,21 @@ class TestPBCSlabCorrCoulombForceModule(unittest.TestCase):
         ref_energy, ref_forces = self.lammps_ref_data()
 
         # energy [eV]
-        self.assertAlmostEqual(energy.item(), ref_energy, places=5)
-        self.assertAlmostEqual(jit_energy.item(), ref_energy, places=5)
+        for e in [energy, jit_energy]:
+            np.isclose(
+                to_numpy_array(e),
+                ref_energy,
+                atol=1e-6,
+                rtol=1e-6,
+            )
         # force [eV/A]
-        self.assertTrue(
+        for f in [forces, jit_forces]:
             np.allclose(
-                to_numpy_array(forces).reshape(-1, 3),
+                to_numpy_array(f).reshape(-1, 3),
                 ref_forces,
-                atol=1e-4,
+                atol=1e-6,
+                rtol=1e-6,
             )
-        )
-        self.assertTrue(
-            np.allclose(
-                to_numpy_array(jit_forces).reshape(-1, 3),
-                ref_forces,
-                atol=1e-4,
-            )
-        )
 
 
 class TestCoulombForceModule(unittest.TestCase):

@@ -44,7 +44,7 @@ class CoulombForceModule(BaseForceModule):
         units_dict: Optional[Dict] = None,
         sel: list[int] = [],
         kappa: Optional[float] = None,
-        spacing: Optional[List[float]] = None,
+        spacing: Union[List[float], float, None] = None,
     ) -> None:
         BaseForceModule.__init__(self, units_dict)
 
@@ -60,6 +60,8 @@ class CoulombForceModule(BaseForceModule):
         self.ethresh = ethresh
         self.kmesh = torch.ones(3, dtype=torch.long)
         if spacing is not None:
+            if isinstance(spacing, float):
+                spacing = [spacing, spacing, spacing]
             self.spacing = torch.tensor(np.array(spacing), dtype=torch.float64)
         else:
             self.spacing = spacing

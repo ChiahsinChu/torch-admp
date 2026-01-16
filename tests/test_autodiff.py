@@ -16,7 +16,7 @@ from torch_admp.utils import calc_grads
 from .deepmd.pt.utils import env
 from .deepmd.pt.utils.utils import to_numpy_array, to_torch_tensor
 
-SEED = 1
+from . import SEED
 
 dtype = torch.float64
 
