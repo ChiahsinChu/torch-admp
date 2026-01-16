@@ -347,7 +347,7 @@ class TestQEqForceModule(unittest.TestCase):
 
         hessian = to_numpy_array(hessian)
         charges = to_numpy_array(charges)
-        self.assertAlmostEqual(
+        np.testing.assert_allclose(
             0.5 * np.inner(np.matmul(charges, hessian), charges),
             to_numpy_array(e1 + e2),
         )
