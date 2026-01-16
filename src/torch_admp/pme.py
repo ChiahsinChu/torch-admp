@@ -266,7 +266,7 @@ class CoulombForceModule(BaseForceModule):
                         * torch.pi
                         * m
                         * kpts_int[None]
-                        / self.kmesh[ii].reshape(1, 1, 3)
+                        / self.kmesh[ii].float().reshape(1, 1, 3)
                     ),
                     dim=0,
                 ),

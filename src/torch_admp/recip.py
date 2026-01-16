@@ -191,7 +191,7 @@ def Q_mesh_on_m(
         m_u0[:, None, :] + shifts + t_kmesh[None, None, :] * 10, t_kmesh[None, None, :]
     )
     Q_mesh = torch.zeros(
-        t_kmesh[0] * t_kmesh[1] * t_kmesh[2],
+        int(t_kmesh[0].item()) * int(t_kmesh[1].item()) * int(t_kmesh[2].item()),
         device=t_kmesh.device,
         dtype=Q_mesh_pera.dtype,
     )
@@ -199,13 +199,13 @@ def Q_mesh_on_m(
     indices_1 = indices_arr[:, :, 1].flatten()
     indices_2 = indices_arr[:, :, 2].flatten()
     flat_indices = (
-        indices_0 * t_kmesh[1] * t_kmesh[2] + indices_1 * t_kmesh[2] + indices_2
+        indices_0 * int(t_kmesh[1].item()) * int(t_kmesh[2].item()) + indices_1 * int(t_kmesh[2].item()) + indices_2
     )
     Q_mesh.index_add_(0, flat_indices, Q_mesh_pera.view(-1))
     Q_mesh = Q_mesh.reshape(
-        t_kmesh[0].item(),
-        t_kmesh[1].item(),
-        t_kmesh[2].item(),
+        int(t_kmesh[0].item()),
+        int(t_kmesh[1].item()),
+        int(t_kmesh[2].item()),
     )
 
     return Q_mesh
@@ -269,8 +269,8 @@ def setup_kpts_integer(
     kx, ky, kz = [
         torch.roll(
             torch.arange(
-                torch.div(-(t_kmesh[i] - 1), 2, rounding_mode="floor"),
-                torch.div(t_kmesh[i] + 1, 2, rounding_mode="floor"),
+                -(int(t_kmesh[i].item()) - 1) // 2,
+                (int(t_kmesh[i].item()) + 1) // 2,
                 device=t_kmesh.device,
             ),
             shifts=[-(int(t_kmesh[i].item()) - 1) // 2],
