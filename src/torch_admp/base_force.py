@@ -18,7 +18,7 @@ class BaseForceModule(torch.nn.Module, ABC):
 
     Notes
     -----
-    All subclasses must implement the forward method to define specific force
+    All subclasses must implement the _forward_impl method to define specific force
     calculations.
     """
 
@@ -240,6 +240,10 @@ class BaseForceModule(torch.nn.Module, ABC):
                 # Single system: (3, 3)
                 if box.shape != (3, 3):
                     raise ValueError(f"box must have shape (3, 3), got {box.shape}")
+                if nframes != 1:
+                    raise ValueError(
+                        f"box must include a frame dimension when positions has {nframes} frames"
+                    )
                 box = box.unsqueeze(0)
             else:
                 raise ValueError(f"box must be 2D or 3D tensor, got {box.dim()}D")
@@ -260,6 +264,10 @@ class BaseForceModule(torch.nn.Module, ABC):
             if pairs.size(1) != 2:
                 raise ValueError(
                     f"pairs must have shape (n_pairs, 2), got {pairs.shape}"
+                )
+            if nframes != 1:
+                raise ValueError(
+                    f"pairs must include a frame dimension when positions has {nframes} frames"
                 )
             pairs = pairs.unsqueeze(0)
         else:
@@ -283,6 +291,10 @@ class BaseForceModule(torch.nn.Module, ABC):
                 raise ValueError(
                     f"ds is expected to have {n_pairs} pairs(s), got {ds.size(0)}"
                 )
+            if nframes != 1:
+                raise ValueError(
+                    f"ds must include a frame dimension when positions has {nframes} frames"
+                )
             ds = ds.unsqueeze(0)
         else:
             raise ValueError(f"ds must be 1D or 2D tensor, got {ds.dim()}D")
@@ -303,6 +315,10 @@ class BaseForceModule(torch.nn.Module, ABC):
             if buffer_scales.size(0) != n_pairs:
                 raise ValueError(
                     f"buffer_scales is expected to have {n_pairs} pairs(s), got {buffer_scales.size(0)}"
+                )
+            if nframes != 1:
+                raise ValueError(
+                    f"buffer_scales must include a frame dimension when positions has {nframes} frames"
                 )
             buffer_scales = buffer_scales.unsqueeze(0)
         else:

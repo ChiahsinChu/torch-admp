@@ -1,4 +1,12 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
+"""
+Utility functions for torch-admp.
+
+This module provides various utility functions used throughout the torch-admp package,
+including mathematical operations, unit conversions, and helper functions for
+optimization and calculations.
+"""
+
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -11,6 +19,19 @@ from torch_admp.env import DEVICE, NP_PRECISION_DICT, PT_PRECISION_DICT
 
 # @torch.jit.script
 def pair_buffer_scales(pairs: torch.Tensor) -> torch.Tensor:
+    """
+    Calculate buffer scales for atom pairs.
+
+    Parameters
+    ----------
+    pairs : torch.Tensor
+        Tensor of atom pairs
+
+    Returns
+    -------
+    torch.Tensor
+        Buffer scales for each pair (1 if i < j, else 0)
+    """
     dp = pairs[:, 0] - pairs[:, 1]
     return torch.where(
         dp < 0,
@@ -21,6 +42,21 @@ def pair_buffer_scales(pairs: torch.Tensor) -> torch.Tensor:
 
 # @torch.jit.script
 def regularize_pairs(pairs: torch.Tensor, buffer_scales: torch.Tensor) -> torch.Tensor:
+    """
+    Regularize atom pairs based on buffer scales.
+
+    Parameters
+    ----------
+    pairs : torch.Tensor
+        Tensor of atom pairs
+    buffer_scales : torch.Tensor
+        Buffer scales for each pair
+
+    Returns
+    -------
+    torch.Tensor
+        Regularized atom pairs
+    """
     a = pairs[:, 0] - buffer_scales
     b = pairs[:, 1] - buffer_scales * 2
     return torch.stack((a, b), dim=1)
@@ -254,6 +290,19 @@ class TorchConstants(torch.nn.Module):
 def to_numpy_array(
     xx,
 ):
+    """
+    Convert PyTorch tensor to NumPy array with appropriate precision.
+
+    Parameters
+    ----------
+    xx : torch.Tensor
+        Input PyTorch tensor
+
+    Returns
+    -------
+    numpy.ndarray
+        NumPy array with appropriate precision
+    """
     if xx is None:
         return None
     assert xx is not None

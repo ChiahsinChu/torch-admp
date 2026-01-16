@@ -1,4 +1,12 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
+"""
+Reciprocal space operations for torch-admp.
+
+This module provides functions for reciprocal space calculations used in
+Particle Mesh Ewald (PME) and other reciprocal space methods,
+including B-spline interpolation, charge spreading, and k-point setup.
+"""
+
 import torch
 
 
@@ -246,9 +254,17 @@ def setup_kpts_integer(
     t_kmesh: torch.Tensor,
 ):
     """
-    Outputs:
-        kpts_int:
-            n_k * 3 matrix, n_k = N[0] * N[1] * N[2]
+    Set up integer k-points for reciprocal space calculations.
+
+    Parameters
+    ----------
+    t_kmesh : torch.Tensor
+        Mesh dimensions [Kx, Ky, Kz]
+
+    Returns
+    -------
+    torch.Tensor
+        n_k * 3 matrix of integer k-points, where n_k = Kx * Ky * Kz
     """
     kx, ky, kz = [
         torch.roll(

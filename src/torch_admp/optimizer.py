@@ -1,4 +1,12 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
+"""
+Optimization algorithms for torch-admp.
+
+This module implements various optimization algorithms used for charge equilibration
+and other optimization tasks in the torch-admp package, including line search,
+conjugate gradient methods, and other optimization utilities.
+"""
+
 from typing import Callable
 
 import torch
@@ -15,6 +23,33 @@ def line_search(
     pk: torch.Tensor = None,
     **kwargs,
 ) -> torch.Tensor:
+    """
+    Perform line search to find optimal step size.
+
+    Parameters
+    ----------
+    func_value : Callable
+        Function to compute the value of the objective function
+    func_grads : Callable
+        Function to compute gradients of the objective function
+    x0 : torch.Tensor
+        Initial point
+    eps : float, optional
+        Convergence threshold, by default 1e-6
+    fk : torch.Tensor, optional
+        Function value at x0, by default None
+    gk : torch.Tensor, optional
+        Gradient at x0, by default None
+    pk : torch.Tensor, optional
+        Search direction, by default None
+    **kwargs
+        Additional keyword arguments passed to func_value and func_grads
+
+    Returns
+    -------
+    torch.Tensor
+        Optimal point found by line search
+    """
     history_x = torch.arange(3, dtype=torch.float64, device=x0.device)
     if fk is None:
         x0 = x0.detach()
@@ -63,6 +98,35 @@ def quadratic_optimize(
     max_iter: int = 20,
     **kwargs,
 ):
+    """
+    Perform quadratic optimization with conjugate gradient method.
+
+    Parameters
+    ----------
+    func_value : Callable
+        Function to compute the value of the objective function
+    func_grads : Callable
+        Function to compute gradients of the objective function
+    xk : torch.Tensor
+        Initial point
+    eps : float, optional
+        Convergence threshold, by default 1e-4
+    ls_eps : float, optional
+        Line search threshold, by default 1e-4
+    max_iter : int, optional
+        Maximum number of iterations, by default 20
+    **kwargs
+        Additional keyword arguments passed to func_value and func_grads
+
+    Returns
+    -------
+    tuple
+        Tuple containing (xk, fk, gk, converge_iter) where:
+        - xk: optimal point
+        - fk: function value at optimal point
+        - gk: gradient at optimal point
+        - converge_iter: iteration at which convergence was achieved
+    """
     converge_iter: int = -1
 
     if xk.grad is not None:
@@ -258,7 +322,21 @@ def update_sd(
     gk_new: torch.Tensor,
 ) -> torch.Tensor:
     """
-    Steepest Descent Algorithm
+    Update search direction using Steepest Descent Algorithm.
+
+    Parameters
+    ----------
+    gk : torch.Tensor
+        Current gradient
+    pk : torch.Tensor
+        Current search direction
+    gk_new : torch.Tensor
+        New gradient
+
+    Returns
+    -------
+    torch.Tensor
+        Updated search direction
     """
     gk = gk_new
     # Selection of the direction of the steepest descent
@@ -272,7 +350,21 @@ def update_fr(
     gk_new: torch.Tensor,
 ) -> torch.Tensor:
     """
-    Feltcher-Reeves Algorithm
+    Update search direction using Fletcher-Reeves Algorithm.
+
+    Parameters
+    ----------
+    gk : torch.Tensor
+        Current gradient
+    pk : torch.Tensor
+        Current search direction
+    gk_new : torch.Tensor
+        New gradient
+
+    Returns
+    -------
+    torch.Tensor
+        Updated search direction
     """
     old_gk = gk
     gk = gk_new
@@ -289,7 +381,21 @@ def update_pr(
     gk_new: torch.Tensor,
 ) -> torch.Tensor:
     """
-    Polak-Ribiere Algorithm
+    Update search direction using Polak-Ribiere Algorithm.
+
+    Parameters
+    ----------
+    gk : torch.Tensor
+        Current gradient
+    pk : torch.Tensor
+        Current search direction
+    gk_new : torch.Tensor
+        New gradient
+
+    Returns
+    -------
+    torch.Tensor
+        Updated search direction
     """
     old_gk = gk
     gk = gk_new
@@ -306,8 +412,22 @@ def update_hs(
     pk: torch.Tensor,
     gk_new: torch.Tensor,
 ) -> torch.Tensor:
-    """ "
-    Hestenes-Stiefel Algorithm
+    """
+    Update search direction using Hestenes-Stiefel Algorithm.
+
+    Parameters
+    ----------
+    gk : torch.Tensor
+        Current gradient
+    pk : torch.Tensor
+        Current search direction
+    gk_new : torch.Tensor
+        New gradient
+
+    Returns
+    -------
+    torch.Tensor
+        Updated search direction
     """
     old_gk = gk
     gk = gk_new
@@ -323,7 +443,21 @@ def update_dy(
     gk_new: torch.Tensor,
 ) -> torch.Tensor:
     """
-    Dai-Yuan Algorithm
+    Update search direction using Dai-Yuan Algorithm.
+
+    Parameters
+    ----------
+    gk : torch.Tensor
+        Current gradient
+    pk : torch.Tensor
+        Current search direction
+    gk_new : torch.Tensor
+        New gradient
+
+    Returns
+    -------
+    torch.Tensor
+        Updated search direction
     """
     old_gk = gk
     gk = gk_new
@@ -339,7 +473,21 @@ def update_hz(
     gk_new: torch.Tensor,
 ) -> torch.Tensor:
     """
-    Hager-Zhang Algorithm
+    Update search direction using Hager-Zhang Algorithm.
+
+    Parameters
+    ----------
+    gk : torch.Tensor
+        Current gradient
+    pk : torch.Tensor
+        Current search direction
+    gk_new : torch.Tensor
+        New gradient
+
+    Returns
+    -------
+    torch.Tensor
+        Updated search direction
     """
     old_gk = gk
     gk = gk_new

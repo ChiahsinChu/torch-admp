@@ -13,24 +13,34 @@ from torch_admp.utils import safe_inverse
 
 class CoulombForceModule(BaseForceModule):
     """
-    Coulomb energy
+    Coulomb energy module with Particle Mesh Ewald (PME).
+
+    This module implements the Coulomb energy calculation using the Particle Mesh Ewald
+    method, which splits the calculation into real-space and reciprocal-space
+    contributions for improved efficiency in periodic systems.
 
     Parameters
     ----------
-    kappa: float
-        inverse screening length [Å^-1]
-    kmesh: Tuple[int, int, int]
-        number of k-points mesh
-    kspace: bool
-        whether the reciprocal part is included
-    rspace: bool
-        whether the real space part is included
-    slab_corr: bool
-        whether the slab correction is applied
-    slab_axis: int
-        axis at which the slab correction is applied
-    units_dict: Dict
-        dictionary of units
+    rcut : float
+        Real-space cutoff distance
+    ethresh : float, optional
+        Energy threshold for PME accuracy, by default 1e-5
+    kspace : bool, optional
+        Whether to include reciprocal space contribution, by default True
+    rspace : bool, optional
+        Whether to include real space contribution, by default True
+    slab_corr : bool, optional
+        Whether to apply slab correction, by default False
+    slab_axis : int, optional
+        Axis at which the slab correction is applied, by default 2
+    units_dict : Optional[Dict], optional
+        Dictionary of unit conversions, by default None
+    sel : Optional[list[int]], optional
+        Selection list for neighbor list, by default None
+    kappa : Optional[float], optional
+        Inverse screening length [Å^-1], by default None
+    spacing : Optional[List[float]], optional
+        Grid spacing for reciprocal space, by default None
     """
 
     def __init__(
@@ -215,7 +225,10 @@ class CoulombForceModule(BaseForceModule):
         volume = torch.det(box)
         box_diag = torch.diagonal(box, dim1=1, dim2=2)
         if self.spacing is not None:
-            self.kmesh = torch.ceil(box_diag / self.spacing).to(torch.long)
+            spacing = torch.as_tensor(
+                self.spacing, dtype=box_diag.dtype, device=box_diag.device
+            )
+            self.kmesh = torch.ceil(box_diag / spacing).to(torch.long)
         else:
             self.kmesh = torch.ceil(
                 2 * self.kappa * box_diag / (3.0 * self.ethresh ** (1.0 / 5.0))

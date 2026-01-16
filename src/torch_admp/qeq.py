@@ -22,6 +22,18 @@ from torch_admp.utils import (
 
 
 class GaussianDampingForceModule(BaseForceModule):
+    """
+    Gaussian short-range damping force module.
+
+    This module implements the Gaussian damping function used in charge equilibration
+    to account for short-range electrostatic interactions.
+
+    Parameters
+    ----------
+    units_dict : Optional[Dict], optional
+        Dictionary containing unit conversion factors, by default None
+    """
+
     def __init__(
         self,
         units_dict: Optional[Dict] = None,
@@ -100,6 +112,18 @@ class GaussianDampingForceModule(BaseForceModule):
 
 
 class SiteForceModule(BaseForceModule):
+    """
+    Chemical site energy force module.
+
+    This module implements the chemical site energy term in charge equilibration,
+    accounting for electronegativity and hardness of atomic sites.
+
+    Parameters
+    ----------
+    units_dict : Optional[Dict], optional
+        Dictionary containing unit conversion factors, by default None
+    """
+
     def __init__(
         self,
         units_dict: Optional[Dict] = None,

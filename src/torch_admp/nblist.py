@@ -1,4 +1,12 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
+"""
+Neighbor list utilities for torch-admp.
+
+This module provides functions and classes for building and managing neighbor lists
+used in molecular simulations, including implementations for both periodic and
+non-periodic boundary conditions.
+"""
+
 import warnings
 from typing import Optional, Tuple
 
@@ -23,7 +31,23 @@ def dp_nblist(
     rcut: float,
 ):
     """
-    Build neighbor list data based on DP functions.
+    Build neighbor list data based on DP (Deep Potential) functions.
+
+    Parameters
+    ----------
+    positions : torch.Tensor
+        Atomic positions
+    box : Optional[torch.Tensor]
+        Simulation box vectors
+    nnei : int
+        Number of neighbors
+    rcut : float
+        Cutoff radius
+
+    Returns
+    -------
+    tuple
+        Tuple containing (pairs, ds, buffer_scales)
     """
     positions = torch.reshape(positions, [1, -1, 3])
     (
@@ -52,6 +76,23 @@ def vesin_nblist(
     box: Optional[torch.Tensor],
     rcut: float,
 ):
+    """
+    Build neighbor list using the Vesin library.
+
+    Parameters
+    ----------
+    positions : torch.Tensor
+        Atomic positions
+    box : Optional[torch.Tensor]
+        Simulation box vectors
+    rcut : float
+        Cutoff radius
+
+    Returns
+    -------
+    tuple
+        Tuple containing (pairs, ds, buffer_scales)
+    """
     device = positions.device
     calculator = NeighborList(cutoff=rcut, full_list=False)
     ii, jj, ds = calculator.compute(
@@ -169,7 +210,19 @@ def make_ds(
 
 def sort_pairs(pairs: torch.Tensor) -> torch.Tensor:
     """
-    Sort pairs first by the first index, then by the second index.
+    Sort atom pairs lexicographically.
+
+    Sorts pairs first by the first index, then by the second index.
+
+    Parameters
+    ----------
+    pairs : torch.Tensor
+        Tensor of atom pairs
+
+    Returns
+    -------
+    torch.Tensor
+        Sorted tensor of atom pairs
     """
     indices = torch.argsort(pairs[:, 1])
     pairs = pairs[indices]
@@ -180,9 +233,11 @@ def sort_pairs(pairs: torch.Tensor) -> torch.Tensor:
 
 class TorchNeighborList(torch.nn.Module):
     """
-    Adapt from below code for jitable:
-        https://github.com/Yangxinsix/curator/tree/master
-        curator.data.TorchNeighborList
+    Torch-compatible neighbor list implementation.
+
+    Adapted from the curator library for JIT compatibility:
+    https://github.com/Yangxinsix/curator/tree/master
+    curator.data.TorchNeighborList
     """
 
     def __init__(
@@ -210,6 +265,21 @@ class TorchNeighborList(torch.nn.Module):
     def forward(
         self, positions: torch.Tensor, box: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
+        """
+        Compute neighbor list for given positions.
+
+        Parameters
+        ----------
+        positions : torch.Tensor
+            Atomic positions
+        box : Optional[torch.Tensor], optional
+            Simulation box vectors, by default None
+
+        Returns
+        -------
+        torch.Tensor
+            Tensor of atom pairs
+        """
         if box is None:
             pairs = self.forward_obc(positions)
             pbc_flag = False
@@ -228,6 +298,21 @@ class TorchNeighborList(torch.nn.Module):
         positions: torch.Tensor,
         box: torch.Tensor,
     ) -> torch.Tensor:
+        """
+        Compute neighbor list for periodic boundary conditions.
+
+        Parameters
+        ----------
+        positions : torch.Tensor
+            Atomic positions
+        box : torch.Tensor
+            Simulation box vectors
+
+        Returns
+        -------
+        torch.Tensor
+            Tensor of atom pairs
+        """
         # calculate padding size. It is useful for all kinds of cells
         wrapped_pos = self.wrap_positions(positions, box)
         norm_a = torch.linalg.cross(box[1], box[2]).norm()
@@ -316,13 +401,40 @@ class TorchNeighborList(torch.nn.Module):
         positions: torch.Tensor,
         box: torch.Tensor,
     ) -> torch.Tensor:
-        """Wrap positions into the unit cell"""
+        """
+        Wrap positions into the unit cell.
+
+        Parameters
+        ----------
+        positions : torch.Tensor
+            Atomic positions
+        box : torch.Tensor
+            Simulation box vectors
+
+        Returns
+        -------
+        torch.Tensor
+            Wrapped positions
+        """
         eps = torch.tensor(1e-7, device=positions.device, dtype=positions.dtype)
         # wrap atoms outside of the box
         scaled_pos = (positions @ torch.linalg.inv(box) + eps) % 1.0 - eps
         return scaled_pos @ box
 
     def forward_obc(self, positions: torch.Tensor) -> torch.Tensor:
+        """
+        Compute neighbor list for open boundary conditions.
+
+        Parameters
+        ----------
+        positions : torch.Tensor
+            Atomic positions
+
+        Returns
+        -------
+        torch.Tensor
+            Tensor of atom pairs
+        """
         dist_mat = torch.cdist(positions, positions)
         mask = dist_mat < self.cutoff
         mask.fill_diagonal_(False)
@@ -332,8 +444,20 @@ class TorchNeighborList(torch.nn.Module):
     @staticmethod
     def pairs_buffer_scales(pairs: torch.Tensor) -> torch.Tensor:
         """
-        if pair_i < pair_j return 1, else return 0
-        exclude repeated pairs and buffer pairs
+        Calculate buffer scales for atom pairs.
+
+        Returns 1 if pair_i < pair_j, else 0.
+        Used to exclude repeated pairs and buffer pairs.
+
+        Parameters
+        ----------
+        pairs : torch.Tensor
+            Tensor of atom pairs
+
+        Returns
+        -------
+        torch.Tensor
+            Buffer scales for each pair
         """
         dp = pairs[:, 0] - pairs[:, 1]
         return torch.where(
@@ -350,7 +474,23 @@ class TorchNeighborList(torch.nn.Module):
         pbc_flag: bool = True,
     ) -> torch.Tensor:
         """
-        return the distance between pairs
+        Calculate distances between atom pairs.
+
+        Parameters
+        ----------
+        positions : torch.Tensor
+            Atomic positions
+        pairs : torch.Tensor
+            Tensor of atom pairs
+        box : Optional[torch.Tensor], optional
+            Simulation box vectors, by default None
+        pbc_flag : bool, optional
+            Whether to apply periodic boundary conditions, by default True
+
+        Returns
+        -------
+        torch.Tensor
+            Distances between atom pairs
         """
         ri = positions[pairs[:, 0]]
         rj = positions[pairs[:, 1]]
@@ -384,6 +524,18 @@ class TorchNeighborList(torch.nn.Module):
 def check_cutoff(box: torch.Tensor, cutoff: float) -> None:
     """
     Check whether the sphere of cutoff radius is inside the box.
+
+    Parameters
+    ----------
+    box : torch.Tensor
+        Simulation box vectors
+    cutoff : float
+        Cutoff radius
+
+    Raises
+    ------
+    AssertionError
+        If cutoff is larger than half the minimum height of the box
     """
     # Get the three cell vectors a1, a2, a3
     a1, a2, a3 = box[0], box[1], box[2]
