@@ -42,7 +42,7 @@ class CoulombForceModule(BaseForceModule):
         slab_corr: bool = False,
         slab_axis: int = 2,
         units_dict: Optional[Dict] = None,
-        sel: list[int] = [],
+        sel: Optional[list[int]] = None,
         kappa: Optional[float] = None,
         spacing: Union[List[float], float, None] = None,
     ) -> None:
@@ -99,7 +99,7 @@ class CoulombForceModule(BaseForceModule):
     def get_rcut(self) -> float:
         return self.rcut
 
-    def get_sel(self):
+    def get_sel(self) -> Optional[list[int]]:
         return self.sel
 
     def _forward_impl(
@@ -211,7 +211,7 @@ class CoulombForceModule(BaseForceModule):
         device = positions.device
         nf = positions.size(0)
 
-        box_inv = torch.inverse(box)
+        box_inv = torch.linalg.inv(box)
         volume = torch.det(box)
         box_diag = torch.diagonal(box, dim1=1, dim2=2)
         if self.spacing is not None:
@@ -337,7 +337,7 @@ class CoulombForceModule(BaseForceModule):
             * (torch.sum(charges * positions[:, :, self.slab_axis] ** 2, dim=-1))
             - torch.pow(Q_tot, 2) * torch.pow(Lz, 2) / 12
         )
-        return torch.sum(e_corr) / getattr(self.const_lib, "energy_coeff")
+        return e_corr
 
     def _forward_obc(
         self,
@@ -352,7 +352,7 @@ class CoulombForceModule(BaseForceModule):
         ds_inv = safe_inverse(ds)
         E_inter = qi * qj * getattr(self.const_lib, "dielectric") * ds_inv
         coul_energy = torch.sum(E_inter * buffer_scales, dim=-1)
-        return coul_energy / getattr(self.const_lib, "energy_coeff")
+        return coul_energy
 
 
 def setup_ewald_parameters(

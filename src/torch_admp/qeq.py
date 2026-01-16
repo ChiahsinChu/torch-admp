@@ -76,7 +76,7 @@ class GaussianDampingForceModule(BaseForceModule):
 
         # nf, np
         eta_i = torch.gather(eta, 1, pairs[:, :, 0])
-        eta_j = torch.gather(eta, 1, pairs[:, :, 0])
+        eta_j = torch.gather(eta, 1, pairs[:, :, 1])
         eta_ij = torch.sqrt((eta_i**2 + eta_j**2) * 2)
         # avoid nan when calculating grad if eta_ij is zero
         eta_ij = torch.where(eta_ij == 0, 1e-10, eta_ij)
@@ -202,7 +202,7 @@ class QEqForceModule(BaseForceModule):
         eps: float = 1e-4,
         units_dict: Optional[Dict] = None,
         damping: bool = True,
-        sel: list[int] = [],
+        sel: Optional[list[int]] = None,
         kappa: Optional[float] = None,
         spacing: Optional[List[float]] = None,
     ) -> None:
@@ -240,7 +240,7 @@ class QEqForceModule(BaseForceModule):
     def get_rcut(self) -> float:
         return self.rcut
 
-    def get_sel(self):
+    def get_sel(self) -> Optional[list[int]]:
         return self.sel
 
     def _forward_impl(
@@ -289,7 +289,7 @@ class QEqForceModule(BaseForceModule):
         nf = positions.size(0)
         energy = torch.zeros(nf, device=positions.device)
         for model in self.submodels.values():
-            energy = energy + model(
+            energy = energy + model._forward_impl(
                 positions,
                 box,
                 pairs,

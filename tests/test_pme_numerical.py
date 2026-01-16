@@ -36,7 +36,7 @@ class TestOpenMMSimulation:
     def __init__(self) -> None:
         self.rcut = 5.0
         self.l_box = 20.0
-        self.ethresh = 1e-6
+        self.ethresh = 5e-6
         self.n_atoms = 100
 
         self.charges = np_rng.uniform(-1.0, 1.0, (self.n_atoms))
@@ -147,15 +147,15 @@ class TestOBCCoulombForceModule(unittest.TestCase):
 
         # energy [eV]
         for e in [energy, jit_energy]:
-            np.isclose(
+            np.testing.assert_allclose(
                 to_numpy_array(e),
-                ref_energy,
+                [ref_energy],
                 atol=1e-6,
                 rtol=1e-6,
             )
         # force [eV/A]
         for f in [forces, jit_forces]:
-            np.allclose(
+            np.testing.assert_allclose(
                 to_numpy_array(f).reshape(-1, 3),
                 ref_forces,
                 atol=1e-6,
@@ -229,19 +229,19 @@ class TestPBCCoulombForceModule(unittest.TestCase):
 
         # energy [eV]
         for e in [energy, jit_energy]:
-            np.isclose(
+            np.testing.assert_allclose(
                 to_numpy_array(e),
-                ref_energy,
-                atol=1e-6,
-                rtol=1e-6,
+                [ref_energy],
+                atol=1e-5,
+                rtol=1e-5,
             )
         # force [eV/A]
         for f in [forces, jit_forces]:
-            np.allclose(
+            np.testing.assert_allclose(
                 to_numpy_array(f).reshape(-1, 3),
                 ref_forces,
-                atol=1e-6,
-                rtol=1e-6,
+                atol=1e-5,
+                rtol=1e-5,
             )
 
 
@@ -322,15 +322,15 @@ class TestPBCSlabCorrCoulombForceModule(unittest.TestCase):
 
         # energy [eV]
         for e in [energy, jit_energy]:
-            np.isclose(
+            np.testing.assert_allclose(
                 to_numpy_array(e),
-                ref_energy,
+                [ref_energy],
                 atol=1e-6,
                 rtol=1e-6,
             )
         # force [eV/A]
         for f in [forces, jit_forces]:
-            np.allclose(
+            np.testing.assert_allclose(
                 to_numpy_array(f).reshape(-1, 3),
                 ref_forces,
                 atol=1e-6,

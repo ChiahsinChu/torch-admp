@@ -130,7 +130,7 @@ def vector_projection_coeff_matrix(constraint_matrix: torch.Tensor) -> torch.Ten
     # n_atoms * n_const
     coeff_mat = torch.matmul(
         constraint_matrix_t,
-        torch.inverse(torch.matmul(constraint_matrix, constraint_matrix_t)),
+        torch.linalg.inv(torch.matmul(constraint_matrix, constraint_matrix_t)),
     )
     return coeff_mat
 

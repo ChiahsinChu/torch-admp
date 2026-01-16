@@ -22,7 +22,7 @@ class BaseForceModule(torch.nn.Module, ABC):
     calculations.
     """
 
-    def __init__(self, units_dict: Optional[Dict] = None, *args, **kwargs) -> None:
+    def __init__(self, units_dict: Optional[Dict] = None) -> None:
         """
         Initialize the BaseForceModule.
 
@@ -31,10 +31,6 @@ class BaseForceModule(torch.nn.Module, ABC):
         units_dict : Optional[Dict], default=None
             Dictionary containing unit conversion factors. If None, default units
             will be used.
-        *args
-            Additional positional arguments passed to parent classes.
-        **kwargs
-            Additional keyword arguments passed to parent classes.
 
         Attributes
         ----------

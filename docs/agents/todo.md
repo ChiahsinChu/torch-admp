@@ -15,13 +15,13 @@ last_updated: 2026-01-12
 - [x] change required shapes of input tensors by adding the dimension of nframes
 - [x] support multi-batch in PME
 - [x] support multi-batch in QEq
-- [x] support multi-batch in polarizable electrode
-- [ ] check numerical uncertainty of polarizable electrode and reduce the tolerance in `tests/test_electrode.py`
+- [ ] reintroduce polarizable electrode module with batch support
+- [ ] add numerical uncertainty tests for polarizable electrode
 
-### constant Q with finite field
+### constant Q with finite field (blocked by electrode reintroduction)
 
 - [ ] implement ffield with conq
-- [ ] update `tests/test_electrode.py::TestConqInterface3DBIAS`
+- [ ] add electrode tests for ConqInterface3DBIAS
 
 ## Documentation
 

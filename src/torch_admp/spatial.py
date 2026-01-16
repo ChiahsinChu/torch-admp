@@ -21,7 +21,7 @@ def pbc_shift(positions: torch.Tensor, box: torch.Tensor) -> torch.Tensor:
     wrapped_positions: torch.Tensor
         N * 3, wrapped positions
     """
-    # box_inv = torch.inverse(box + torch.eye(3, device=positions.device) * 1e-36)
+    # box_inv = torch.linalg.inv(box + torch.eye(3, device=positions.device) * 1e-36)
     box_inv = torch.linalg.inv(box)
     unshifted_positions = torch.matmul(positions, box_inv)
     wrapped_positions = unshifted_positions - torch.floor(unshifted_positions + 0.5)
