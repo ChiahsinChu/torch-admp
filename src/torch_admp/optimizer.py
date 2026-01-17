@@ -50,7 +50,7 @@ def line_search(
     torch.Tensor
         Optimal point found by line search
     """
-    history_x = torch.arange(3, dtype=torch.float64, device=x0.device)
+    history_x = torch.arange(3, dtype=x0.dtype, device=x0.device)
     if fk is None:
         x0 = x0.detach()
         x0.requires_grad = True

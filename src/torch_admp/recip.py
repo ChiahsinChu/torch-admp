@@ -199,7 +199,9 @@ def Q_mesh_on_m(
     indices_1 = indices_arr[:, :, 1].flatten()
     indices_2 = indices_arr[:, :, 2].flatten()
     flat_indices = (
-        indices_0 * int(t_kmesh[1].item()) * int(t_kmesh[2].item()) + indices_1 * int(t_kmesh[2].item()) + indices_2
+        indices_0 * int(t_kmesh[1].item()) * int(t_kmesh[2].item())
+        + indices_1 * int(t_kmesh[2].item())
+        + indices_2
     )
     Q_mesh.index_add_(0, flat_indices, Q_mesh_pera.view(-1))
     Q_mesh = Q_mesh.reshape(

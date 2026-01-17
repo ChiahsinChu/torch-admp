@@ -7,6 +7,7 @@ import torch
 from scipy import special
 
 from torch_admp.base_force import BaseForceModule
+from torch_admp.env import DEVICE, GLOBAL_PT_FLOAT_PRECISION
 from torch_admp.recip import bspline, setup_kpts, setup_kpts_integer, spread_charges
 from torch_admp.utils import safe_inverse
 
@@ -68,23 +69,24 @@ class CoulombForceModule(BaseForceModule):
             else:
                 self.kappa = 0.0
         self.ethresh = ethresh
-        self.kmesh = torch.ones(3, dtype=torch.long)
+        self.kmesh = torch.ones(3, dtype=torch.long, device=DEVICE)
         if spacing is not None:
             if isinstance(spacing, float):
                 spacing = [spacing, spacing, spacing]
-            self.spacing = torch.tensor(np.array(spacing), dtype=torch.float64)
+            self.spacing = torch.tensor(
+                np.array(spacing), dtype=GLOBAL_PT_FLOAT_PRECISION, device=DEVICE
+            )
         else:
             self.spacing = spacing
         self.rspace_flag = rspace
         self.slab_corr_flag = slab_corr
         self.slab_axis = slab_axis
 
-        # todo: how to set device
-        self.real_energy = torch.tensor(0.0)
-        self.reciprocal_energy = torch.tensor(0.0)
-        self.self_energy = torch.tensor(0.0)
-        self.non_neutral_energy = torch.tensor(0.0)
-        self.slab_corr_energy = torch.tensor(0.0)
+        self.real_energy = torch.tensor(0.0, device=DEVICE)
+        self.reciprocal_energy = torch.tensor(0.0, device=DEVICE)
+        self.self_energy = torch.tensor(0.0, device=DEVICE)
+        self.non_neutral_energy = torch.tensor(0.0, device=DEVICE)
+        self.slab_corr_energy = torch.tensor(0.0, device=DEVICE)
 
         # Currently only supprots pme_order=6
         # Because only the 6-th order spline function is hard implemented
@@ -92,8 +94,9 @@ class CoulombForceModule(BaseForceModule):
         n_mesh = int(self.pme_order**3)
 
         # global variables for the reciprocal module, all related to pme_order
-        # todo: how to set device
-        bspline_range = torch.arange(-self.pme_order // 2, self.pme_order // 2)
+        bspline_range = torch.arange(
+            -self.pme_order // 2, self.pme_order // 2, device=DEVICE
+        )
         shift_y, shift_x, shift_z = torch.meshgrid(
             bspline_range, bspline_range, bspline_range, indexing="ij"
         )

@@ -389,7 +389,7 @@ class QEqForceModule(BaseForceModule):
     ):
         n_atoms = positions.shape[0]
         q_tmp = torch.zeros(
-            n_atoms, device=positions.device, dtype=torch.float64, requires_grad=True
+            n_atoms, device=positions.device, dtype=positions.dtype, requires_grad=True
         )
         # calculate hessian
         # hessian = torch.func.hessian(self.func_energy)(
@@ -555,7 +555,7 @@ class QEqForceModule(BaseForceModule):
         # n_const = constraint_matrix.shape[0]
 
         if q0 is None:
-            q0 = torch.rand(n_atoms, device=positions.device, dtype=torch.float64)
+            q0 = torch.rand(n_atoms, device=positions.device, dtype=positions.dtype)
             reinit_q = True
         assert q0.shape[0] == n_atoms
         # make sure the initial guess satisfy constraints
@@ -777,7 +777,7 @@ class QEqForceModule(BaseForceModule):
                 gk: torch.Tensor,
                 pk: torch.Tensor,
             ):
-                history_x = torch.arange(3, dtype=torch.float64, device=x0.device)
+                history_x = torch.arange(3, dtype=x0.dtype, device=x0.device)
                 history_f = [fk]
 
                 xk = x0.detach()
@@ -925,7 +925,7 @@ def pgrad_optimize(
     # n_const = constraint_matrix.shape[0]
 
     if q0 is None:
-        q0 = torch.rand(n_atoms, device=positions.device, dtype=torch.float64)
+        q0 = torch.rand(n_atoms, device=positions.device, dtype=positions.dtype)
         reinit_q = True
     assert q0.shape[0] == n_atoms
     # make sure the initial guess satisfy constraints
@@ -1045,7 +1045,7 @@ def _pgrad_optimize_quadratic(func_energy: Callable, max_iter: int, eps: float):
             gk: torch.Tensor,
             pk: torch.Tensor,
         ):
-            history_x = torch.arange(3, dtype=torch.float64, device=x0.device)
+            history_x = torch.arange(3, dtype=x0.dtype, device=x0.device)
             history_f = [fk]
 
             xk = x0.detach()
@@ -1187,7 +1187,7 @@ def calc_hessian(
 ):
     n_atoms = positions.shape[0]
     q_tmp = torch.zeros(
-        n_atoms, device=positions.device, dtype=torch.float64, requires_grad=True
+        n_atoms, device=positions.device, dtype=positions.dtype, requires_grad=True
     )
     y = func_energy(q_tmp, positions, box, chi, hardness, eta, pairs, ds, buffer_scales)
     grad = torch.autograd.grad(y, q_tmp, retain_graph=True, create_graph=True)

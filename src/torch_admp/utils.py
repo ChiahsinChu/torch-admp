@@ -166,7 +166,7 @@ def vector_projection_coeff_matrix(constraint_matrix: torch.Tensor) -> torch.Ten
     # n_atoms * n_const
     coeff_mat = torch.matmul(
         constraint_matrix_t,
-        torch.linalg.inv(torch.matmul(constraint_matrix, constraint_matrix_t)),
+        torch.inverse(torch.matmul(constraint_matrix, constraint_matrix_t)),
     )
     return coeff_mat
 
@@ -280,7 +280,10 @@ class TorchConstants(torch.nn.Module):
         )
         # qqrd2e = 1 / (4 * np.pi * EPSILON)
         # eV
-        self.register_buffer("dielectric", 1 / (4 * self.pi * self.epsilon))
+        dielectric_value = 1.0 / (4.0 * np.pi * self.epsilon.item())
+        self.register_buffer(
+            "dielectric", torch.tensor(dielectric_value, device=DEVICE)
+        )
         # kJ/mol
         # DIELECTRIC = torch.tensor(1389.35455846).to(DEVICE)
         # self.dielectric = 1 / (4 * self.pi * self.epsilon) / self.energy_coeff
