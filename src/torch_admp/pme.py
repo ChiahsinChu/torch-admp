@@ -1,4 +1,13 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
+"""
+Particle Mesh Ewald (PME) implementation for torch-admp.
+
+This module implements the Coulomb energy calculation using the Particle Mesh Ewald
+method, which splits the calculation into real-space and reciprocal-space
+contributions for improved efficiency in periodic systems. It includes support for
+slab corrections and various optimization methods.
+"""
+
 import math
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -7,6 +16,7 @@ import torch
 from scipy import special
 
 from torch_admp.base_force import BaseForceModule
+from torch_admp.env import DEVICE, GLOBAL_PT_FLOAT_PRECISION
 from torch_admp.recip import bspline, setup_kpts, setup_kpts_integer, spread_charges
 from torch_admp.utils import safe_inverse
 
@@ -56,6 +66,32 @@ class CoulombForceModule(BaseForceModule):
         kappa: Optional[float] = None,
         spacing: Union[List[float], float, None] = None,
     ) -> None:
+        """
+        Initialize the CoulombForceModule with PME.
+
+        Parameters
+        ----------
+        rcut : float
+            Real-space cutoff distance
+        ethresh : float, optional
+            Energy threshold for PME accuracy, by default 1e-5
+        kspace : bool, optional
+            Whether to include reciprocal space contribution, by default True
+        rspace : bool, optional
+            Whether to include real space contribution, by default True
+        slab_corr : bool, optional
+            Whether to apply slab correction, by default False
+        slab_axis : int, optional
+            Axis at which the slab correction is applied, by default 2
+        units_dict : Optional[Dict], optional
+            Dictionary of unit conversions, by default None
+        sel : Optional[list[int]], optional
+            Selection list for neighbor list, by default None
+        kappa : Optional[float], optional
+            Inverse screening length [Å^-1], by default None
+        spacing : Optional[List[float]], optional
+            Grid spacing for reciprocal space, by default None
+        """
         BaseForceModule.__init__(self, units_dict)
 
         self.kspace_flag = kspace
@@ -68,23 +104,34 @@ class CoulombForceModule(BaseForceModule):
             else:
                 self.kappa = 0.0
         self.ethresh = ethresh
-        self.kmesh = torch.ones(3, dtype=torch.long)
+        self.kmesh = torch.ones(3, dtype=torch.long, device=DEVICE)
         if spacing is not None:
             if isinstance(spacing, float):
                 spacing = [spacing, spacing, spacing]
-            self.spacing = torch.tensor(np.array(spacing), dtype=torch.float64)
+            self.spacing = torch.tensor(
+                np.array(spacing), dtype=GLOBAL_PT_FLOAT_PRECISION, device=DEVICE
+            )
         else:
             self.spacing = spacing
         self.rspace_flag = rspace
         self.slab_corr_flag = slab_corr
         self.slab_axis = slab_axis
 
-        # todo: how to set device
-        self.real_energy = torch.tensor(0.0)
-        self.reciprocal_energy = torch.tensor(0.0)
-        self.self_energy = torch.tensor(0.0)
-        self.non_neutral_energy = torch.tensor(0.0)
-        self.slab_corr_energy = torch.tensor(0.0)
+        self.real_energy = torch.tensor(
+            0.0, device=DEVICE, dtype=GLOBAL_PT_FLOAT_PRECISION
+        )
+        self.reciprocal_energy = torch.tensor(
+            0.0, device=DEVICE, dtype=GLOBAL_PT_FLOAT_PRECISION
+        )
+        self.self_energy = torch.tensor(
+            0.0, device=DEVICE, dtype=GLOBAL_PT_FLOAT_PRECISION
+        )
+        self.non_neutral_energy = torch.tensor(
+            0.0, device=DEVICE, dtype=GLOBAL_PT_FLOAT_PRECISION
+        )
+        self.slab_corr_energy = torch.tensor(
+            0.0, device=DEVICE, dtype=GLOBAL_PT_FLOAT_PRECISION
+        )
 
         # Currently only supprots pme_order=6
         # Because only the 6-th order spline function is hard implemented
@@ -92,8 +139,9 @@ class CoulombForceModule(BaseForceModule):
         n_mesh = int(self.pme_order**3)
 
         # global variables for the reciprocal module, all related to pme_order
-        # todo: how to set device
-        bspline_range = torch.arange(-self.pme_order // 2, self.pme_order // 2)
+        bspline_range = torch.arange(
+            -self.pme_order // 2, self.pme_order // 2, device=DEVICE
+        )
         shift_y, shift_x, shift_z = torch.meshgrid(
             bspline_range, bspline_range, bspline_range, indexing="ij"
         )
@@ -107,9 +155,25 @@ class CoulombForceModule(BaseForceModule):
         self.sel = sel
 
     def get_rcut(self) -> float:
+        """
+        Get the cutoff radius.
+
+        Returns
+        -------
+        float
+            Cutoff radius
+        """
         return self.rcut
 
     def get_sel(self) -> Optional[list[int]]:
+        """
+        Get `sel` list of DP model.
+
+        Returns
+        -------
+        Optional[list[int]]
+            The number of selected neighbors for each type of atom.
+        """
         return self.sel
 
     def _forward_impl(
@@ -172,6 +236,29 @@ class CoulombForceModule(BaseForceModule):
         ds: torch.Tensor,
         buffer_scales: torch.Tensor,
     ) -> torch.Tensor:
+        """
+        Calculate Coulomb energy for periodic boundary conditions.
+
+        Parameters
+        ----------
+        charges : torch.Tensor
+            Atomic charges
+        positions : torch.Tensor
+            Atomic positions
+        box : torch.Tensor
+            Simulation box vectors
+        pairs : torch.Tensor
+            Tensor of atom pairs
+        ds : torch.Tensor
+            Distance tensor
+        buffer_scales : torch.Tensor
+            Buffer scales for each pair
+
+        Returns
+        -------
+        torch.Tensor
+            Total Coulomb energy
+        """
         if self.rspace_flag:
             self.real_energy = self._forward_pbc_real(charges, pairs, ds, buffer_scales)
         if self.kspace_flag:
@@ -198,6 +285,25 @@ class CoulombForceModule(BaseForceModule):
         ds: torch.Tensor,
         buffer_scales: torch.Tensor,
     ) -> torch.Tensor:
+        """
+        Calculate real-space contribution to Coulomb energy.
+
+        Parameters
+        ----------
+        charges : torch.Tensor
+            Atomic charges
+        pairs : torch.Tensor
+            Tensor of atom pairs
+        ds : torch.Tensor
+            Distance tensor
+        buffer_scales : torch.Tensor
+            Buffer scales for each pair
+
+        Returns
+        -------
+        torch.Tensor
+            Real-space contribution to Coulomb energy
+        """
         # qi or qj: nf, np
         qi = torch.gather(charges, 1, pairs[:, :, 0])
         qj = torch.gather(charges, 1, pairs[:, :, 1])
@@ -218,6 +324,23 @@ class CoulombForceModule(BaseForceModule):
         positions: torch.Tensor,
         box: torch.Tensor,
     ) -> torch.Tensor:
+        """
+        Calculate reciprocal-space contribution to Coulomb energy.
+
+        Parameters
+        ----------
+        charges : torch.Tensor
+            Atomic charges
+        positions : torch.Tensor
+            Atomic positions
+        box : torch.Tensor
+            Simulation box vectors
+
+        Returns
+        -------
+        torch.Tensor
+            Reciprocal-space contribution to Coulomb energy
+        """
         device = positions.device
         nf = positions.size(0)
 
@@ -306,6 +429,21 @@ class CoulombForceModule(BaseForceModule):
         charges: torch.Tensor,
         box: torch.Tensor,
     ) -> torch.Tensor:
+        """
+        Calculate non-neutral correction for Coulomb energy.
+
+        Parameters
+        ----------
+        charges : torch.Tensor
+            Atomic charges
+        box : torch.Tensor
+            Simulation box vectors
+
+        Returns
+        -------
+        torch.Tensor
+            Non-neutral correction to Coulomb energy
+        """
         volume = torch.det(box)
         # total charge
         Q_tot = torch.sum(charges, dim=-1)
@@ -359,6 +497,25 @@ class CoulombForceModule(BaseForceModule):
         ds: torch.Tensor,
         buffer_scales: torch.Tensor,
     ) -> torch.Tensor:
+        """
+        Calculate Coulomb energy for open boundary conditions.
+
+        Parameters
+        ----------
+        charges : torch.Tensor
+            Atomic charges
+        pairs : torch.Tensor
+            Tensor of atom pairs
+        ds : torch.Tensor
+            Distance tensor
+        buffer_scales : torch.Tensor
+            Buffer scales for each pair
+
+        Returns
+        -------
+        torch.Tensor
+            Coulomb energy for open boundary conditions
+        """
         # qi or qj: nf, np
         qi = torch.gather(charges, 1, pairs[:, :, 0])
         qj = torch.gather(charges, 1, pairs[:, :, 1])
@@ -467,4 +624,21 @@ def _coeff_k_1(
     kappa: float,
     volume: torch.Tensor,
 ):
+    """
+    Calculate coefficient for k-space contribution.
+
+    Parameters
+    ----------
+    ksq : torch.Tensor
+        Square of k-vectors
+    kappa : float
+        Eald parameter
+    volume : torch.Tensor
+        Volume of the simulation box
+
+    Returns
+    -------
+    torch.Tensor
+        Coefficient for k-space contribution
+    """
     return 2 * torch.pi / volume / ksq * torch.exp(-ksq / 4 / kappa**2)

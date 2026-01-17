@@ -37,8 +37,6 @@ if os.environ.get("DEVICE") == "cpu" or torch.cuda.is_available() is False:
     DEVICE = torch.device("cpu")
 else:
     DEVICE = torch.device(f"cuda:{LOCAL_RANK}")
-
-torch.set_default_dtype(torch.float64)
 torch.set_default_device(DEVICE)
 
 PT_PRECISION_DICT = {
@@ -69,3 +67,11 @@ NP_PRECISION_DICT = {
     # hdf5 hasn't supported bfloat16 as well (see https://forum.hdfgroup.org/t/11975)
     "bfloat16": ml_dtypes.bfloat16,
 }
+GLOBAL_PT_FLOAT_PRECISION: torch.dtype = PT_PRECISION_DICT[
+    np.dtype(GLOBAL_NP_FLOAT_PRECISION).name
+]
+GLOBAL_PT_ENER_FLOAT_PRECISION: torch.dtype = PT_PRECISION_DICT[
+    np.dtype(GLOBAL_ENER_FLOAT_PRECISION).name
+]
+PT_PRECISION_DICT["default"] = GLOBAL_PT_FLOAT_PRECISION
+torch.set_default_dtype(PT_PRECISION_DICT["default"])

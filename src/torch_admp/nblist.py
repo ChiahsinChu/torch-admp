@@ -15,12 +15,12 @@ import torch
 try:
     from deepmd.pt.utils.nlist import extend_input_and_build_neighbor_list
 except ImportError:
-    warnings.warn(
-        "deepmd.pt is required for dp_nblist",
-    )
+    warnings.warn("deepmd.pt is required for dp_nblist", ImportWarning)
+    extend_input_and_build_neighbor_list = None
 
 from vesin.torch import NeighborList
 
+from torch_admp.env import DEVICE, GLOBAL_PT_FLOAT_PRECISION
 from torch_admp.spatial import pbc_shift
 
 
@@ -48,7 +48,17 @@ def dp_nblist(
     -------
     tuple
         Tuple containing (pairs, ds, buffer_scales)
+
+    Raises
+    ------
+    ImportError
+        If deepmd.pt is not available
     """
+    if extend_input_and_build_neighbor_list is None:
+        raise ImportError(
+            "deepmd.pt is required for dp_nblist. Please install deepmd-pt to use this function."
+        )
+
     positions = torch.reshape(positions, [1, -1, 3])
     (
         extended_coord,
@@ -63,7 +73,8 @@ def dp_nblist(
         box=box,
     )
     extended_pairs = make_extended_pairs(nlist)
-    pairs, buffer_scales, mask_ij, mask_ii = make_local_pairs(extended_pairs, mapping)
+    pairs, _buffer_scales, mask_ij, mask_ii = make_local_pairs(extended_pairs, mapping)
+    buffer_scales = _buffer_scales.to(positions.device)
     ds_ij = make_ds(extended_pairs, extended_coord, mask_ij)
     ds_ii = make_ds(extended_pairs, extended_coord, mask_ii)
     ds = torch.concat([ds_ij, ds_ii])
@@ -95,9 +106,14 @@ def vesin_nblist(
     """
     device = positions.device
     calculator = NeighborList(cutoff=rcut, full_list=False)
+
+    # Handle the box parameter properly
+    box_cpu = box.to("cpu") if box is not None else None
+
+    # Use type ignore to work around the type checking issue
     ii, jj, ds = calculator.compute(
         points=positions.to("cpu"),
-        box=box.to("cpu"),
+        box=box_cpu,  # type: ignore
         periodic=True,
         quantities="ijd",
     )
@@ -169,8 +185,10 @@ def make_local_pairs(
     local_pairs_ij = torch.stack([ii, jj], dim=-1)[mask_ij]
     local_pairs_ii = torch.stack([ii, jj], dim=-1)[mask_ii]
 
-    buffer_scales_ij = torch.ones(local_pairs_ij.shape[0], dtype=torch.float64)
-    buffer_scales_ii = torch.ones(local_pairs_ii.shape[0], dtype=torch.float64) / 2.0
+    buffer_scales_ij = torch.ones(local_pairs_ij.shape[0], device=local_pairs_ij.device)
+    buffer_scales_ii = (
+        torch.ones(local_pairs_ii.shape[0], device=local_pairs_ii.device) / 2.0
+    )
 
     local_pairs = torch.concat([local_pairs_ij, local_pairs_ii])
     buffer_scales = torch.concat([buffer_scales_ij, buffer_scales_ii])
@@ -244,23 +262,27 @@ class TorchNeighborList(torch.nn.Module):
         self,
         cutoff: float,
     ) -> None:
+        """
+        Initialize the TorchNeighborList.
+
+        Parameters
+        ----------
+        cutoff : float
+            Cutoff distance for neighbor list construction
+        """
         super().__init__()
         self.cutoff = cutoff
-        disp_mat = torch.cartesian_prod(
-            torch.arange(-1, 2),
-            torch.arange(-1, 2),
-            torch.arange(-1, 2),
-        )
-        self.register_buffer("disp_mat", disp_mat, persistent=False)
+        _t = torch.arange(-1, 2, device=DEVICE)
+        disp_mat = torch.cartesian_prod(_t, _t, _t)
+        self.register_buffer("disp_mat", disp_mat, persistent=True)
 
         self.pairs = torch.jit.annotate(torch.Tensor, torch.empty(1, dtype=torch.long))
         self.buffer_scales = torch.jit.annotate(
             torch.Tensor, torch.empty(1, dtype=torch.long)
         )
-        self.ds = torch.jit.annotate(torch.Tensor, torch.empty(1, dtype=torch.float64))
-        # self.pairs: torch.Tensor = None
-        # self.buffer_scales: torch.Tensor = None
-        # self.ds: torch.Tensor = None
+        self.ds = torch.jit.annotate(
+            torch.Tensor, torch.empty(1, dtype=GLOBAL_PT_FLOAT_PRECISION)
+        )
 
     def forward(
         self, positions: torch.Tensor, box: Optional[torch.Tensor] = None
@@ -315,10 +337,10 @@ class TorchNeighborList(torch.nn.Module):
         """
         # calculate padding size. It is useful for all kinds of cells
         wrapped_pos = self.wrap_positions(positions, box)
-        norm_a = torch.linalg.cross(box[1], box[2]).norm()
-        norm_b = torch.linalg.cross(box[2], box[0]).norm()
-        norm_c = torch.linalg.cross(box[0], box[1]).norm()
-        volume = torch.sum(box[0] * torch.linalg.cross(box[1], box[2]))
+        norm_a = torch.cross(box[1], box[2]).norm()
+        norm_b = torch.cross(box[2], box[0]).norm()
+        norm_c = torch.cross(box[0], box[1]).norm()
+        volume = torch.sum(box[0] * torch.cross(box[1], box[2]))
 
         # get padding size and padding matrix to generate padded atoms. Use minimal image convention
         padding_a = torch.ceil(self.cutoff * norm_a / volume).long()
@@ -326,9 +348,15 @@ class TorchNeighborList(torch.nn.Module):
         padding_c = torch.ceil(self.cutoff * norm_c / volume).long()
 
         padding_mat = torch.cartesian_prod(
-            torch.arange(-padding_a, padding_a + 1, device=padding_a.device),
-            torch.arange(-padding_b, padding_b + 1, device=padding_a.device),
-            torch.arange(-padding_c, padding_c + 1, device=padding_a.device),
+            torch.arange(
+                -padding_a.item(), padding_a.item() + 1, device=padding_a.device
+            ),
+            torch.arange(
+                -padding_b.item(), padding_b.item() + 1, device=padding_a.device
+            ),
+            torch.arange(
+                -padding_c.item(), padding_c.item() + 1, device=padding_a.device
+            ),
         ).to(box.dtype)
         padding_size = (2 * padding_a + 1) * (2 * padding_b + 1) * (2 * padding_c + 1)
 
@@ -354,7 +382,10 @@ class TorchNeighborList(torch.nn.Module):
         # atom box position and index
         atom_cpos = torch.floor(wrapped_pos / self.cutoff).long() - corner
         # atom neighbors' box position and index
-        atom_cnpos = atom_cpos.unsqueeze(1) + self.disp_mat
+        # Ensure disp_mat is on the same device as atom_cpos
+        # Use type: ignore to work around type checking issue with registered buffers
+        disp_mat_device = self.disp_mat.to(atom_cpos.device)  # type: ignore
+        atom_cnpos = atom_cpos.unsqueeze(1) + disp_mat_device  # type: ignore
         atom_cnind = torch.sum(atom_cnpos * count_vec, dim=-1)
 
         # construct a C x N matrix to store the box atom list, this is the most expensive part.
@@ -499,25 +530,73 @@ class TorchNeighborList(torch.nn.Module):
         else:
             assert box is not None, "Box should be provided for periodic system."
             dr = pbc_shift(ri - rj, box)
-        ds = torch.linalg.vector_norm(dr, dim=1)
+        ds = torch.norm(dr, dim=1)
         return ds
 
     def set_pairs(self, pairs: torch.Tensor) -> None:
+        """
+        Set the atom pairs.
+
+        Parameters
+        ----------
+        pairs : torch.Tensor
+            Tensor of atom pairs
+        """
         self.pairs = pairs
 
     def set_buffer_scales(self, buffer_scales: torch.Tensor) -> None:
+        """
+        Set the buffer scales for atom pairs.
+
+        Parameters
+        ----------
+        buffer_scales : torch.Tensor
+            Buffer scales for each pair
+        """
         self.buffer_scales = buffer_scales
 
     def set_ds(self, ds: torch.Tensor) -> None:
+        """
+        Set the distances between atom pairs.
+
+        Parameters
+        ----------
+        ds : torch.Tensor
+            Distances between atom pairs
+        """
         self.ds = ds
 
     def get_pairs(self) -> torch.Tensor:
+        """
+        Get the atom pairs.
+
+        Returns
+        -------
+        torch.Tensor
+            Tensor of atom pairs
+        """
         return self.pairs
 
     def get_buffer_scales(self) -> torch.Tensor:
+        """
+        Get the buffer scales for atom pairs.
+
+        Returns
+        -------
+        torch.Tensor
+            Buffer scales for each pair
+        """
         return self.buffer_scales
 
     def get_ds(self) -> torch.Tensor:
+        """
+        Get the distances between atom pairs.
+
+        Returns
+        -------
+        torch.Tensor
+            Distances between atom pairs
+        """
         return self.ds
 
 

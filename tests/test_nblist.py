@@ -12,7 +12,13 @@ import freud
 import numpy as np
 import torch
 
-from torch_admp.nblist import TorchNeighborList, dp_nblist, sort_pairs, vesin_nblist
+from torch_admp.nblist import (
+    TorchNeighborList,
+    dp_nblist,
+    extend_input_and_build_neighbor_list,
+    sort_pairs,
+    vesin_nblist,
+)
 from torch_admp.utils import to_numpy_array
 
 from . import SEED
@@ -98,6 +104,9 @@ class TestNBList(unittest.TestCase):
         self.rcut = 6.0
         self.nnei = 150
 
+    @unittest.skipIf(
+        extend_input_and_build_neighbor_list is None, "deepmd.pt not installed"
+    )
     def test_consistent(self):
         """Test consistency between different neighbor list implementations.
 
