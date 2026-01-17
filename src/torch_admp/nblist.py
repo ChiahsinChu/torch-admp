@@ -262,6 +262,14 @@ class TorchNeighborList(torch.nn.Module):
         self,
         cutoff: float,
     ) -> None:
+        """
+        Initialize the TorchNeighborList.
+
+        Parameters
+        ----------
+        cutoff : float
+            Cutoff distance for neighbor list construction
+        """
         super().__init__()
         self.cutoff = cutoff
         _t = torch.arange(-1, 2, device=DEVICE)
@@ -526,21 +534,69 @@ class TorchNeighborList(torch.nn.Module):
         return ds
 
     def set_pairs(self, pairs: torch.Tensor) -> None:
+        """
+        Set the atom pairs.
+
+        Parameters
+        ----------
+        pairs : torch.Tensor
+            Tensor of atom pairs
+        """
         self.pairs = pairs
 
     def set_buffer_scales(self, buffer_scales: torch.Tensor) -> None:
+        """
+        Set the buffer scales for atom pairs.
+
+        Parameters
+        ----------
+        buffer_scales : torch.Tensor
+            Buffer scales for each pair
+        """
         self.buffer_scales = buffer_scales
 
     def set_ds(self, ds: torch.Tensor) -> None:
+        """
+        Set the distances between atom pairs.
+
+        Parameters
+        ----------
+        ds : torch.Tensor
+            Distances between atom pairs
+        """
         self.ds = ds
 
     def get_pairs(self) -> torch.Tensor:
+        """
+        Get the atom pairs.
+
+        Returns
+        -------
+        torch.Tensor
+            Tensor of atom pairs
+        """
         return self.pairs
 
     def get_buffer_scales(self) -> torch.Tensor:
+        """
+        Get the buffer scales for atom pairs.
+
+        Returns
+        -------
+        torch.Tensor
+            Buffer scales for each pair
+        """
         return self.buffer_scales
 
     def get_ds(self) -> torch.Tensor:
+        """
+        Get the distances between atom pairs.
+
+        Returns
+        -------
+        torch.Tensor
+            Distances between atom pairs
+        """
         return self.ds
 
 

@@ -1,4 +1,13 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
+"""
+Charge equilibration (QEq) implementation for torch-admp.
+
+This module implements charge equilibration methods for determining atomic charges
+in molecular systems. It includes various optimization approaches including matrix
+inversion and projected gradient methods, with support for different constraints
+and damping functions.
+"""
+
 from typing import Callable, Dict, List, Optional, Tuple
 
 import torch
@@ -38,6 +47,14 @@ class GaussianDampingForceModule(BaseForceModule):
         self,
         units_dict: Optional[Dict] = None,
     ) -> None:
+        """
+        Initialize the GaussianDampingForceModule.
+
+        Parameters
+        ----------
+        units_dict : Optional[Dict], optional
+            Dictionary containing unit conversion factors, by default None
+        """
         BaseForceModule.__init__(self, units_dict)
 
     def _forward_impl(
@@ -128,6 +145,14 @@ class SiteForceModule(BaseForceModule):
         self,
         units_dict: Optional[Dict] = None,
     ) -> None:
+        """
+        Initialize the SiteForceModule.
+
+        Parameters
+        ----------
+        units_dict : Optional[Dict], optional
+            Dictionary containing unit conversion factors, by default None
+        """
         BaseForceModule.__init__(self, units_dict)
 
     def _forward_impl(
@@ -230,6 +255,43 @@ class QEqForceModule(BaseForceModule):
         kappa: Optional[float] = None,
         spacing: Optional[List[float]] = None,
     ) -> None:
+        """
+        Initialize the QEqForceModule.
+
+        Parameters
+        ----------
+        rcut : float
+            cutoff radius for short-range interactions
+        ethresh : float, optional
+            energy threshold for electrostatic interaction, by default 1e-5
+        kspace : bool
+            whether the reciprocal part is included
+        rspace : bool
+            whether the real space part is included
+        slab_corr : bool
+            whether the slab correction is applied
+        slab_axis : int
+            axis at which the slab correction is applied
+        max_iter : int, optional
+            maximum number of iterations for optimization, by default 20
+            only used for projected gradient method
+        ls_eps : float, optional
+            threshold for line search, by default 1e-4
+            only used for projected gradient method
+        eps : float, optional
+            threshold for convergence, by default 1e-4
+            only used for projected gradient method
+        units_dict : Dict, optional
+            dictionary of units, by default None
+        damping : bool, optional
+            Whether to include Gaussian damping, by default True
+        sel : Optional[list[int]], optional
+            Selection list for neighbor list, by default None
+        kappa : Optional[float], optional
+            Inverse screening length [Å^-1], by default None
+        spacing : Optional[List[float]], optional
+            Grid spacing for reciprocal space, by default None
+        """
         BaseForceModule.__init__(self, units_dict)
 
         models: Dict[str, BaseForceModule] = {
@@ -262,9 +324,25 @@ class QEqForceModule(BaseForceModule):
         self.slab_corr = slab_corr
 
     def get_rcut(self) -> float:
+        """
+        Get the cutoff radius.
+
+        Returns
+        -------
+        float
+            Cutoff radius
+        """
         return self.rcut
 
     def get_sel(self) -> Optional[list[int]]:
+        """
+        Get `sel` list of DP model.
+
+        Returns
+        -------
+        Optional[list[int]]
+            The number of selected neighbors for each type of atom.
+        """
         return self.sel
 
     def _forward_impl(
@@ -387,6 +465,33 @@ class QEqForceModule(BaseForceModule):
         ds: torch.Tensor,
         buffer_scales: torch.Tensor,
     ):
+        """
+        Calculate the Hessian matrix of the energy with respect to charges.
+
+        Parameters
+        ----------
+        positions : torch.Tensor
+            Atomic positions
+        box : Optional[torch.Tensor]
+            Simulation box vectors
+        chi : torch.Tensor
+            Electronegativity in energy/charge unit
+        hardness : torch.Tensor
+            Atomic hardness in energy/charge^2 unit
+        eta : torch.Tensor
+            Gaussian width in length unit
+        pairs : torch.Tensor
+            Tensor of atom pairs
+        ds : torch.Tensor
+            Distance tensor
+        buffer_scales : torch.Tensor
+            Buffer scales for each pair
+
+        Returns
+        -------
+        torch.Tensor
+            Hessian matrix with shape (n_atoms, n_atoms)
+        """
         n_atoms = positions.shape[0]
         q_tmp = torch.zeros(
             n_atoms, device=positions.device, dtype=positions.dtype, requires_grad=True
@@ -568,8 +673,8 @@ class QEqForceModule(BaseForceModule):
         # choose iterative algorithm
         try:
             solver_fn = getattr(self, f"_optimize_{method}")()
-        except KeyError:
-            raise ValueError(f"Method {method} is not supported.")
+        except KeyError as exc:
+            raise ValueError(f"Method {method} is not supported.") from exc
 
         _q_opt = custom_root(
             self.optimality,
@@ -651,6 +756,15 @@ class QEqForceModule(BaseForceModule):
         return torch.norm(pgrads) / charges.shape[0]
 
     def _optimize_lbfgs(self):
+        """
+        Create LBFGS optimizer function.
+
+        Returns
+        -------
+        solver_fn : Callable
+            Solver function for LBFGS optimization
+        """
+
         def solver_fn(
             charges: torch.Tensor,
             positions: torch.Tensor,
@@ -756,6 +870,15 @@ class QEqForceModule(BaseForceModule):
     #     return solver_fn
 
     def _optimize_quadratic(self):
+        """
+        Create quadratic optimizer function.
+
+        Returns
+        -------
+        solver_fn : Callable
+            Solver function for quadratic optimization
+        """
+
         def solver_fn(
             charges: torch.Tensor,
             positions: torch.Tensor,
@@ -777,6 +900,29 @@ class QEqForceModule(BaseForceModule):
                 gk: torch.Tensor,
                 pk: torch.Tensor,
             ):
+                """
+                Line search function for quadratic optimization.
+
+                Parameters
+                ----------
+                x0 : torch.Tensor
+                    Current charges
+                positions : torch.Tensor
+                    Atomic positions
+                box : torch.Tensor
+                    Simulation box vectors
+                fk : torch.Tensor
+                    Current energy
+                gk : torch.Tensor
+                    Current gradient
+                pk : torch.Tensor
+                    Search direction
+
+                Returns
+                -------
+                torch.Tensor
+                    Optimized charges
+                """
                 history_x = torch.arange(3, dtype=x0.dtype, device=x0.device)
                 history_f = [fk]
 
@@ -879,6 +1025,49 @@ def pgrad_optimize(
     method: str = "lbfgs",
     **kwargs,
 ):
+    """
+    Function to optimize atomic charges with projected gradient method.
+
+    Parameters
+    ----------
+    module : QEqForceModule
+        QEq module
+    q0 : Optional[torch.Tensor]
+        Initial guess for atomic charges, all zeros for None
+    positions : torch.Tensor
+        Atomic positions
+    box : Optional[torch.Tensor]
+        Simulation box vectors
+    chi : torch.Tensor
+        Electronegativity in energy/charge unit
+    hardness : torch.Tensor
+        Atomic hardness in energy/charge^2 unit
+    eta : torch.Tensor
+        Gaussian width in length unit
+    pairs : torch.Tensor
+        n_pairs * 2 tensor of pairs
+    ds : torch.Tensor
+        i-j distance tensor
+    buffer_scales : torch.Tensor
+        Buffer scales for each pair, 1 if i < j else 0
+    constraint_matrix : torch.Tensor
+        n_const * natoms, constraint matrix
+    constraint_vals : torch.Tensor
+        n_const, constraint values
+    coeff_matrix : Optional[torch.Tensor]
+        n_atoms * n_const, coefficient matrix
+    reinit_q : bool, optional
+        If reinitialize atomic charges based on constraints, by default False
+    method : str, optional
+        Optimization method, by default "lbfgs"
+
+    Returns
+    -------
+    energy: torch.Tensor
+        Energy tensor
+    q_opt: torch.Tensor
+        Optimized atomic charges
+    """
     """Function to optimize atomic charges with projected gradient method
 
     Parameters
@@ -940,8 +1129,8 @@ def pgrad_optimize(
         solver_fn = globals()[f"_pgrad_optimize_{method}"](
             module.func_energy, module.max_iter, module.eps
         )
-    except KeyError:
-        raise ValueError(f"Method {method} is not supported.")
+    except KeyError as exc:
+        raise ValueError(f"Method {method} is not supported.") from exc
 
     out = custom_root(
         module.optimality,
@@ -974,6 +1163,24 @@ def pgrad_optimize(
 
 
 def _pgrad_optimize_lbfgs(func_energy: Callable, max_iter: int, eps: float):
+    """
+    Create LBFGS optimizer function for projected gradient optimization.
+
+    Parameters
+    ----------
+    func_energy : Callable
+        Energy function
+    max_iter : int
+        Maximum number of iterations
+    eps : float
+        Convergence threshold
+
+    Returns
+    -------
+    solver_fn : Callable
+        LBFGS solver function
+    """
+
     def solver_fn(
         charges: torch.Tensor,
         positions: torch.Tensor,
@@ -987,6 +1194,39 @@ def _pgrad_optimize_lbfgs(func_energy: Callable, max_iter: int, eps: float):
         constraint_matrix: torch.Tensor,
         coeff_matrix: torch.Tensor,
     ) -> Tuple[torch.Tensor, int]:
+        """
+        LBFGS solver function for charge optimization.
+
+        Parameters
+        ----------
+        charges : torch.Tensor
+            Initial atomic charges
+        positions : torch.Tensor
+            Atomic positions
+        box : Optional[torch.Tensor]
+            Simulation box vectors
+        chi : torch.Tensor
+            Electronegativity in energy/charge unit
+        hardness : torch.Tensor
+            Atomic hardness in energy/charge^2 unit
+        eta : torch.Tensor
+            Gaussian width in length unit
+        pairs : torch.Tensor
+            Tensor of atom pairs
+        ds : torch.Tensor
+            Distance tensor
+        buffer_scales : torch.Tensor
+            Buffer scales for each pair
+        constraint_matrix : torch.Tensor
+            Constraint matrix
+        coeff_matrix : torch.Tensor
+            Coefficient matrix for vector projection
+
+        Returns
+        -------
+        Tuple[torch.Tensor, int]
+            Tuple containing (optimized charges, convergence iteration)
+        """
         n_atoms = charges.shape[0]
         x0 = charges.detach()
         x0.requires_grad = True
@@ -1024,6 +1264,24 @@ def _pgrad_optimize_lbfgs(func_energy: Callable, max_iter: int, eps: float):
 
 
 def _pgrad_optimize_quadratic(func_energy: Callable, max_iter: int, eps: float):
+    """
+    Create quadratic optimizer function for projected gradient optimization.
+
+    Parameters
+    ----------
+    func_energy : Callable
+        Energy function
+    max_iter : int
+        Maximum number of iterations
+    eps : float
+        Convergence threshold
+
+    Returns
+    -------
+    solver_fn : Callable
+        Quadratic solver function
+    """
+
     def solver_fn(
         charges: torch.Tensor,
         positions: torch.Tensor,
@@ -1037,6 +1295,40 @@ def _pgrad_optimize_quadratic(func_energy: Callable, max_iter: int, eps: float):
         constraint_matrix: torch.Tensor,
         coeff_matrix: torch.Tensor,
     ) -> Tuple[torch.Tensor, int]:
+        """
+        Quadratic solver function for charge optimization.
+
+        Parameters
+        ----------
+        charges : torch.Tensor
+            Initial atomic charges
+        positions : torch.Tensor
+            Atomic positions
+        box : Optional[torch.Tensor]
+            Simulation box vectors
+        chi : torch.Tensor
+            Electronegativity in energy/charge unit
+        hardness : torch.Tensor
+            Atomic hardness in energy/charge^2 unit
+        eta : torch.Tensor
+            Gaussian width in length unit
+        pairs : torch.Tensor
+            Tensor of atom pairs
+        ds : torch.Tensor
+            Distance tensor
+        buffer_scales : torch.Tensor
+            Buffer scales for each pair
+        constraint_matrix : torch.Tensor
+            Constraint matrix
+        coeff_matrix : torch.Tensor
+            Coefficient matrix for vector projection
+
+        Returns
+        -------
+        Tuple[torch.Tensor, int]
+            Tuple containing (optimized charges, convergence iteration)
+        """
+
         def line_search(
             x0: torch.Tensor,
             positions: torch.Tensor,
@@ -1141,6 +1433,41 @@ def matinv_optimize(
     constraint_vals: torch.Tensor,
     **kwargs,
 ):
+    """
+    Function to optimize atomic charges with matrix inversion method.
+
+    Parameters
+    ----------
+    module : QEqForceModule
+        QEq module
+    positions : torch.Tensor
+        Atomic positions
+    box : Optional[torch.Tensor]
+        Simulation box vectors
+    chi : torch.Tensor
+        Electronegativity in energy/charge unit
+    hardness : torch.Tensor
+        Atomic hardness in energy/charge^2 unit
+    eta : torch.Tensor
+        Gaussian width in length unit
+    pairs : torch.Tensor
+        Tensor of atom pairs
+    ds : torch.Tensor
+        Distance tensor
+    buffer_scales : torch.Tensor
+        Buffer scales for each pair
+    constraint_matrix : torch.Tensor
+        n_const * natoms, constraint matrix
+    constraint_vals : torch.Tensor
+        n_const, constraint values
+
+    Returns
+    -------
+    energy: torch.Tensor
+        Energy tensor
+    q_opt: torch.Tensor
+        Optimized atomic charges
+    """
     # calculate hessian
     # n_atoms * n_atoms
     hessian = calc_hessian(
@@ -1185,6 +1512,35 @@ def calc_hessian(
     ds: torch.Tensor,
     buffer_scales: torch.Tensor,
 ):
+    """
+    Calculate Hessian matrix of the energy with respect to charges.
+
+    Parameters
+    ----------
+    func_energy : Callable
+        Energy function
+    positions : torch.Tensor
+        Atomic positions
+    box : Optional[torch.Tensor]
+        Simulation box vectors
+    chi : torch.Tensor
+        Electronegativity in energy/charge unit
+    hardness : torch.Tensor
+        Atomic hardness in energy/charge^2 unit
+    eta : torch.Tensor
+        Gaussian width in length unit
+    pairs : torch.Tensor
+        Tensor of atom pairs
+    ds : torch.Tensor
+        Distance tensor
+    buffer_scales : torch.Tensor
+        Buffer scales for each pair
+
+    Returns
+    -------
+    torch.Tensor
+        Hessian matrix with shape (n_atoms, n_atoms)
+    """
     n_atoms = positions.shape[0]
     q_tmp = torch.zeros(
         n_atoms, device=positions.device, dtype=positions.dtype, requires_grad=True

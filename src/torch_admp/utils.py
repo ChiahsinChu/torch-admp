@@ -211,6 +211,19 @@ def vector_projection(
 
 
 class TorchConstants(torch.nn.Module):
+    """
+    Physical constants and unit conversions for torch-admp.
+
+    This class provides consistent physical constants and unit conversions
+    compatible with ASE (Atomic Simulation Environment). It handles
+    conversion between different unit systems for energy, length, and
+    other physical quantities used in molecular simulations.
+
+    Notes
+    -----
+    Electron volts (eV), Ångström (Ang), atomic mass unit and Kelvin are defined as 1.0.
+    """
+
     def __init__(self, units_dict: Optional[Dict] = None):
         """
         Consistent with ASE: https://wiki.fysik.dtu.dk/ase/ase/units.html
@@ -233,15 +246,15 @@ class TorchConstants(torch.nn.Module):
         # from user-defined units to ASE units (eV, Ang)
         try:
             length_coeff = getattr(units, user_length)
-        except AttributeError:
-            raise ValueError(f"Unknown length unit: {user_length}")
+        except AttributeError as exc:
+            raise ValueError(f"Unknown length unit: {user_length}") from exc
         try:
             if user_energy == "kJ/mol":
                 energy_coeff = units.kJ / units.mol
             else:
                 energy_coeff = getattr(units, user_energy)
-        except AttributeError:
-            raise ValueError(f"Unknown energy unit: {user_energy}")
+        except AttributeError as exc:
+            raise ValueError(f"Unknown energy unit: {user_energy}") from exc
 
         self.register_buffer(
             "length_coeff",

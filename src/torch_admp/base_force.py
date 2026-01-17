@@ -1,4 +1,12 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
+"""
+Base force module for torch-admp.
+
+This module provides the abstract base class for force modules in torch-admp,
+which defines the common interface for force calculations. It includes
+standardized input validation and unit conversion functionality.
+"""
+
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, Tuple
 
