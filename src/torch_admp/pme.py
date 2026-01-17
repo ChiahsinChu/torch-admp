@@ -82,11 +82,21 @@ class CoulombForceModule(BaseForceModule):
         self.slab_corr_flag = slab_corr
         self.slab_axis = slab_axis
 
-        self.real_energy = torch.tensor(0.0, device=DEVICE)
-        self.reciprocal_energy = torch.tensor(0.0, device=DEVICE)
-        self.self_energy = torch.tensor(0.0, device=DEVICE)
-        self.non_neutral_energy = torch.tensor(0.0, device=DEVICE)
-        self.slab_corr_energy = torch.tensor(0.0, device=DEVICE)
+        self.real_energy = torch.tensor(
+            0.0, device=DEVICE, dtype=GLOBAL_PT_FLOAT_PRECISION
+        )
+        self.reciprocal_energy = torch.tensor(
+            0.0, device=DEVICE, dtype=GLOBAL_PT_FLOAT_PRECISION
+        )
+        self.self_energy = torch.tensor(
+            0.0, device=DEVICE, dtype=GLOBAL_PT_FLOAT_PRECISION
+        )
+        self.non_neutral_energy = torch.tensor(
+            0.0, device=DEVICE, dtype=GLOBAL_PT_FLOAT_PRECISION
+        )
+        self.slab_corr_energy = torch.tensor(
+            0.0, device=DEVICE, dtype=GLOBAL_PT_FLOAT_PRECISION
+        )
 
         # Currently only supprots pme_order=6
         # Because only the 6-th order spline function is hard implemented

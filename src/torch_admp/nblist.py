@@ -185,8 +185,10 @@ def make_local_pairs(
     local_pairs_ij = torch.stack([ii, jj], dim=-1)[mask_ij]
     local_pairs_ii = torch.stack([ii, jj], dim=-1)[mask_ii]
 
-    buffer_scales_ij = torch.ones(local_pairs_ij.shape[0])
-    buffer_scales_ii = torch.ones(local_pairs_ii.shape[0]) / 2.0
+    buffer_scales_ij = torch.ones(local_pairs_ij.shape[0], device=local_pairs_ij.device)
+    buffer_scales_ii = (
+        torch.ones(local_pairs_ii.shape[0], device=local_pairs_ii.device) / 2.0
+    )
 
     local_pairs = torch.concat([local_pairs_ij, local_pairs_ii])
     buffer_scales = torch.concat([buffer_scales_ij, buffer_scales_ii])
@@ -264,7 +266,7 @@ class TorchNeighborList(torch.nn.Module):
         self.cutoff = cutoff
         _t = torch.arange(-1, 2, device=DEVICE)
         disp_mat = torch.cartesian_prod(_t, _t, _t)
-        self.register_buffer("disp_mat", disp_mat, persistent=False)
+        self.register_buffer("disp_mat", disp_mat, persistent=True)
 
         self.pairs = torch.jit.annotate(torch.Tensor, torch.empty(1, dtype=torch.long))
         self.buffer_scales = torch.jit.annotate(
@@ -439,7 +441,7 @@ class TorchNeighborList(torch.nn.Module):
         """
         eps = torch.tensor(1e-7, device=positions.device, dtype=positions.dtype)
         # wrap atoms outside of the box
-        scaled_pos = (positions @ torch.inverse(box) + eps) % 1.0 - eps
+        scaled_pos = (positions @ torch.linalg.inv(box) + eps) % 1.0 - eps
         return scaled_pos @ box
 
     def forward_obc(self, positions: torch.Tensor) -> torch.Tensor:
