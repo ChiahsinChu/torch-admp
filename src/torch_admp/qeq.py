@@ -1571,6 +1571,8 @@ def matinv_optimize(
     q_opt: torch.Tensor
         Optimized atomic charges
     """
+    device = positions.device
+    dtype = positions.dtype
     # calculate hessian
     # n_atoms * n_atoms
     hessian = calc_hessian(
@@ -1588,7 +1590,13 @@ def matinv_optimize(
         coeff_matrix = torch.cat(
             [
                 torch.cat([hessian, constraint_matrix.T], dim=1),
-                torch.cat([constraint_matrix, torch.zeros(n_const, n_const)], dim=1),
+                torch.cat(
+                    [
+                        constraint_matrix,
+                        torch.zeros((n_const, n_const), device=device, dtype=dtype),
+                    ],
+                    dim=1,
+                ),
             ],
             dim=0,
         )

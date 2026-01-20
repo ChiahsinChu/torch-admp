@@ -22,6 +22,9 @@ def run_test_without_packages(
             for pkg_name in sys.modules.keys()
             if re.search(pkg_names, pkg_name)
         ]
-    with patch.dict(sys.modules, {pkg_name: None for pkg_name in pkg_names}):
+    try:
+        with patch.dict(sys.modules, {pkg_name: None for pkg_name in pkg_names}):
+            importlib.reload(reload_module)
+            func(**kwargs)
+    finally:
         importlib.reload(reload_module)
-        func(**kwargs)
