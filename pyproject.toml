@@ -21,6 +21,7 @@ dependencies = [
     "scipy>=1.6.0",
     "ase",
     "vesin[torch]",
+    "ml_dtypes",
 ]
 [project.urls]
 Homepage = "https://github.com/ChiahsinChu/torch-admp"

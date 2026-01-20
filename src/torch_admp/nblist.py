@@ -10,6 +10,7 @@ non-periodic boundary conditions.
 import warnings
 from typing import Optional, Tuple
 
+import numpy as np
 import torch
 
 try:
@@ -22,6 +23,7 @@ from vesin.torch import NeighborList
 
 from torch_admp.env import DEVICE, GLOBAL_PT_FLOAT_PRECISION
 from torch_admp.spatial import pbc_shift
+from torch_admp.utils import to_torch_tensor
 
 
 def dp_nblist(
@@ -86,7 +88,7 @@ def dp_nblist(
 
 def vesin_nblist(
     positions: torch.Tensor,
-    box: Optional[torch.Tensor],
+    box: torch.Tensor,
     rcut: float,
 ):
     """
@@ -109,17 +111,13 @@ def vesin_nblist(
     device = positions.device
     calculator = NeighborList(cutoff=rcut, full_list=False)
 
-    # run the following command with default device cpu
-    with torch.device("cpu"):
-        # Handle the box parameter properly
-        box_cpu = box.to("cpu") if box is not None else None
-        # Use type ignore to work around the type checking issue
-        ii, jj, ds = calculator.compute(
-            points=positions.to("cpu"),
-            box=box_cpu,  # type: ignore
-            periodic=True,
-            quantities="ijd",
-        )
+    # Handle the box parameter properly
+    ii, jj, ds = calculator.compute(
+        points=positions.to("cpu"),
+        box=box.to("cpu"),
+        periodic=to_torch_tensor(np.full(3, True)).to("cpu"),
+        quantities="ijd",
+    )
     buffer_scales = torch.ones_like(ds).to(device)
     return torch.stack([ii, jj]).to(device).T, ds.to(device), buffer_scales
 

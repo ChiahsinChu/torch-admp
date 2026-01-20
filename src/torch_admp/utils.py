@@ -292,22 +292,70 @@ except ImportError:
     from torch_admp.env import NP_PRECISION_DICT, PT_PRECISION_DICT
 
     @overload
-    def to_numpy_array(xx: torch.Tensor) -> np.ndarray: ...
+    def to_numpy_array(xx: torch.Tensor) -> np.ndarray:
+        """
+        Convert a PyTorch tensor to a NumPy array.
+
+        Parameters
+        ----------
+        xx : torch.Tensor
+            Input PyTorch tensor to convert.
+
+        Returns
+        -------
+        np.ndarray
+            NumPy array with the appropriate precision.
+        """
 
     @overload
-    def to_numpy_array(xx: None) -> None: ...
+    def to_numpy_array(xx: None) -> None:
+        """
+        Handle None input for to_numpy_array.
+
+        Parameters
+        ----------
+        xx : None
+            None input.
+
+        Returns
+        -------
+        None
+            Returns None.
+        """
 
     def to_numpy_array(
         xx: torch.Tensor | None,
     ) -> np.ndarray | None:
+        """
+        Convert a PyTorch tensor to a NumPy array.
+
+        This function handles precision conversion and device transfer from
+        PyTorch tensors to NumPy arrays, using the precision mappings defined
+        in the environment configuration.
+
+        Parameters
+        ----------
+        xx : torch.Tensor or None
+            Input PyTorch tensor to convert. If None, returns None.
+
+        Returns
+        -------
+        np.ndarray or None
+            NumPy array with the appropriate precision, or None if input was None.
+
+        Raises
+        ------
+        ValueError
+            If the tensor precision is not recognized in the precision mapping.
+        """
         if xx is None:
             return None
         assert xx is not None
         # Create a reverse mapping of PT_PRECISION_DICT
         reverse_precision_dict = {v: k for k, v in PT_PRECISION_DICT.items()}
         # Use the reverse mapping to find keys with the desired value
-        prec = reverse_precision_dict.get(xx.dtype, None)
-        prec = NP_PRECISION_DICT.get(prec, None)
+        prec = reverse_precision_dict.get(xx.dtype)
+        prec = NP_PRECISION_DICT.get(prec) if prec is not None else None
         if prec is None:
             raise ValueError(f"unknown precision {xx.dtype}")
         if xx.dtype == torch.bfloat16:
@@ -316,14 +364,62 @@ except ImportError:
         return xx.detach().cpu().numpy().astype(prec)
 
     @overload
-    def to_torch_tensor(xx: np.ndarray) -> torch.Tensor: ...
+    def to_torch_tensor(xx: np.ndarray) -> torch.Tensor:
+        """
+        Convert a NumPy array to a PyTorch tensor.
+
+        Parameters
+        ----------
+        xx : np.ndarray
+            Input NumPy array to convert.
+
+        Returns
+        -------
+        torch.Tensor
+            PyTorch tensor with the appropriate precision and device.
+        """
 
     @overload
-    def to_torch_tensor(xx: None) -> None: ...
+    def to_torch_tensor(xx: None) -> None:
+        """
+        Handle None input for to_torch_tensor.
+
+        Parameters
+        ----------
+        xx : None
+            None input.
+
+        Returns
+        -------
+        None
+            Returns None.
+        """
 
     def to_torch_tensor(
         xx: np.ndarray | None,
     ) -> torch.Tensor | None:
+        """
+        Convert a NumPy array to a PyTorch tensor.
+
+        This function handles precision conversion and device transfer from
+        NumPy arrays to PyTorch tensors, using the precision mappings defined
+        in the environment configuration.
+
+        Parameters
+        ----------
+        xx : np.ndarray or None
+            Input NumPy array to convert. If None, returns None.
+
+        Returns
+        -------
+        torch.Tensor or None
+            PyTorch tensor with the appropriate precision and device, or None if input was None.
+
+        Raises
+        ------
+        ValueError
+            If the array precision is not recognized in the precision mapping.
+        """
         if xx is None:
             return None
         assert xx is not None
@@ -332,8 +428,8 @@ except ImportError:
         # Create a reverse mapping of NP_PRECISION_DICT
         reverse_precision_dict = {v: k for k, v in NP_PRECISION_DICT.items()}
         # Use the reverse mapping to find keys with the desired value
-        prec = reverse_precision_dict.get(xx.dtype.type, None)
-        prec = PT_PRECISION_DICT.get(prec, None)
+        prec = reverse_precision_dict.get(xx.dtype.type)
+        prec = PT_PRECISION_DICT.get(prec) if prec is not None else None
         if prec is None:
             raise ValueError(f"unknown precision {xx.dtype}")
         if xx.dtype == ml_dtypes.bfloat16:

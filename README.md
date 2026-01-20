@@ -1,6 +1,7 @@
 # DMFF in PyTorch backend
 
 [![codecov](https://codecov.io/gh/ChiahsinChu/torch-admp/graph/badge.svg?token=aBlN5QoejV)](https://codecov.io/gh/ChiahsinChu/torch-admp)
+[![docscov](./docs/badges/docstring-coverage.svg)](https://pypi.org/project/docstr-coverage/)
 [![PyPI version](https://img.shields.io/pypi/v/torch-admp)](https://pypi.org/project/torch-admp/)
 
 > torch version of ADMP is initialized by [Zheng Cheng](https://github.com/zhengcheng233/dmff_torch) (AISI).

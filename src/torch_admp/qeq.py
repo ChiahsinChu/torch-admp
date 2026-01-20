@@ -783,6 +783,39 @@ class QEqForceModule(BaseForceModule):
             constraint_matrix: torch.Tensor,
             coeff_matrix: torch.Tensor,
         ):
+            """
+            LBFGS solver function for charge optimization.
+
+            Parameters
+            ----------
+            charges : torch.Tensor
+                Initial atomic charges
+            positions : torch.Tensor
+                Atomic positions
+            box : Optional[torch.Tensor]
+                Simulation box vectors
+            chi : torch.Tensor
+                Electronegativity in energy/charge unit
+            hardness : torch.Tensor
+                Atomic hardness in energy/charge^2 unit
+            eta : torch.Tensor
+                Gaussian width in length unit
+            pairs : torch.Tensor
+                Tensor of atom pairs
+            ds : torch.Tensor
+                Distance tensor
+            buffer_scales : torch.Tensor
+                Buffer scales for each pair
+            constraint_matrix : torch.Tensor
+                Constraint matrix
+            coeff_matrix : torch.Tensor
+                Coefficient matrix for vector projection
+
+            Returns
+            -------
+            torch.Tensor
+                Optimized atomic charges
+            """
             n_atoms = charges.shape[0]
             x0 = charges.detach()
             x0.requires_grad = True
@@ -799,6 +832,14 @@ class QEqForceModule(BaseForceModule):
             for ii in range(self.max_iter):
 
                 def closure():
+                    """
+                    Closure function for LBFGS optimization.
+
+                    Returns
+                    -------
+                    torch.Tensor
+                        Energy loss value
+                    """
                     x0.grad = None
                     loss = self.func_energy(
                         x0, positions, box, chi, hardness, eta, pairs, ds, buffer_scales
@@ -897,6 +938,39 @@ class QEqForceModule(BaseForceModule):
             constraint_matrix: torch.Tensor,
             coeff_matrix: torch.Tensor,
         ):
+            """
+            Quadratic solver function for charge optimization.
+
+            Parameters
+            ----------
+            charges : torch.Tensor
+                Initial atomic charges
+            positions : torch.Tensor
+                Atomic positions
+            box : Optional[torch.Tensor]
+                Simulation box vectors
+            chi : torch.Tensor
+                Electronegativity in energy/charge unit
+            hardness : torch.Tensor
+                Atomic hardness in energy/charge^2 unit
+            eta : torch.Tensor
+                Gaussian width in length unit
+            pairs : torch.Tensor
+                Tensor of atom pairs
+            ds : torch.Tensor
+                Distance tensor
+            buffer_scales : torch.Tensor
+                Buffer scales for each pair
+            constraint_matrix : torch.Tensor
+                Constraint matrix
+            coeff_matrix : torch.Tensor
+                Coefficient matrix for vector projection
+
+            Returns
+            -------
+            torch.Tensor
+                Optimized atomic charges
+            """
             def line_search(
                 x0: torch.Tensor,
                 positions: torch.Tensor,
@@ -905,6 +979,29 @@ class QEqForceModule(BaseForceModule):
                 gk: torch.Tensor,
                 pk: torch.Tensor,
             ):
+                """
+                Line search function for quadratic optimization.
+
+                Parameters
+                ----------
+                x0 : torch.Tensor
+                    Current charges
+                positions : torch.Tensor
+                    Atomic positions
+                box : torch.Tensor
+                    Simulation box vectors
+                fk : torch.Tensor
+                    Current energy
+                gk : torch.Tensor
+                    Current gradient
+                pk : torch.Tensor
+                    Search direction
+
+                Returns
+                -------
+                torch.Tensor
+                    Optimized charges
+                """
                 """
                 Line search function for quadratic optimization.
 
