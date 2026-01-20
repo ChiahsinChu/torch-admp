@@ -10,9 +10,9 @@ import unittest
 import numpy as np
 import torch
 
+from torch_admp import env
 from torch_admp.pme import CoulombForceModule
 from torch_admp.utils import calc_grads, to_numpy_array, to_torch_tensor
-from torch_admp import env
 
 from . import SEED
 

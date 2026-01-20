@@ -971,6 +971,7 @@ class QEqForceModule(BaseForceModule):
             torch.Tensor
                 Optimized atomic charges
             """
+
             def line_search(
                 x0: torch.Tensor,
                 positions: torch.Tensor,

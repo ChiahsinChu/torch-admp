@@ -58,7 +58,7 @@ def dp_nblist(
     """
     if extend_input_and_build_neighbor_list is None:
         raise ImportError(
-            "deepmd.pt is required for dp_nblist. Please install deepmd-pt to use this function."
+            "deepmd.pt is required for dp_nblist. Please install deepmd (pt backend) to use this function."
         )
 
     positions = torch.reshape(positions, [1, -1, 3])
