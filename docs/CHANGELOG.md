@@ -1,7 +1,7 @@
 ---
 status: draft
 author: AI Agent, Jia-Xin Zhu
-last_updated: 2026-01-16
+last_updated: 2026-01-20
 ---
 
 # CHANGELOG
@@ -10,6 +10,47 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.1.4] - 2026-01-20
+
+### Added
+
+- Docstring coverage badge to documentation
+- DeepMD package integration for enhanced compatibility
+
+### Changed
+
+- Enhanced testing infrastructure
+- Improved error handling in tests
+- Updated precision handling for better compatibility with DeepMD
+
+### Removed
+
+- DeepMD code from tests (moved to integration)
+
+### Fixed
+
+- Device and dtype consistency in matinv_optimize function
+
+## [1.1.3] - 2026-01-17
+
+### Added
+
+- Global precision handling for consistent tensor operations
+- Comprehensive NumPy-style docstrings throughout the codebase
+- Development tools:
+  - Python test script (`scripts/python_test.sh`)
+  - PyPI release automation script (`scripts/pypi_release.sh`)
+- Enhanced documentation in `scripts/README.md`
+
+### Changed
+
+- Fixed dtype consistency and device placement across all tensors
+- Replaced deprecated `torch.inverse` with `torch.linalg.inverse`
+- Improved CI configuration to trigger documentation deployment only on master branch
+- Updated README.md with latest project information
+- Enhanced PME and QEq modules with better precision handling
+- Improved neighbor list implementation with better error handling
 
 ## [1.1.2] - 2026-01-16
 

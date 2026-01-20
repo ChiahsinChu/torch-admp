@@ -12,11 +12,10 @@ import unittest
 import numpy as np
 import torch
 
-from torch_admp.env import DEVICE
 from torch_admp.nblist import TorchNeighborList
 from torch_admp.pme import CoulombForceModule
 from torch_admp.qeq import GaussianDampingForceModule, QEqForceModule, SiteForceModule
-from torch_admp.utils import calc_grads, to_numpy_array
+from torch_admp.utils import calc_grads, to_numpy_array, to_torch_tensor
 
 from . import SEED
 
@@ -55,21 +54,26 @@ class JITTest:
         charges = np_rng.uniform(-1.0, 1.0, (n_atoms))
         charges -= charges.mean()
 
-        positions = torch.tensor(positions, requires_grad=True).to(DEVICE)
+        positions = to_torch_tensor(positions)
+        positions.requires_grad_(True)
         if self.periodic:
-            box = torch.tensor(box).to(DEVICE)
-        charges = torch.tensor(charges, requires_grad=True).to(DEVICE)
+            box = to_torch_tensor(box)
+        charges = to_torch_tensor(charges)
+        charges.requires_grad_(True)
 
         nblist = TorchNeighborList(cutoff=rcut)
         pairs = nblist(positions, box)
         ds = nblist.get_ds()
         buffer_scales = nblist.get_buffer_scales()
 
+        device = positions.device
+        dtype = positions.dtype
+
         params = {
             "charge": charges,
-            "eta": torch.ones(n_atoms).to(DEVICE),
-            "chi": torch.ones(n_atoms).to(DEVICE),
-            "hardness": torch.zeros(n_atoms).to(DEVICE),
+            "eta": torch.ones(n_atoms, device=device, dtype=dtype),
+            "chi": torch.ones(n_atoms, device=device, dtype=dtype),
+            "hardness": torch.zeros(n_atoms, device=device, dtype=dtype),
         }
         energy = self.module(
             positions,

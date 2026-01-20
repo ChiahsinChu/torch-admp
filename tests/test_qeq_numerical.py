@@ -25,6 +25,7 @@ from torch_admp.utils import (
     calc_grads,
     calc_pgrads,
     to_numpy_array,
+    to_torch_tensor,
     vector_projection_coeff_matrix,
 )
 
@@ -63,10 +64,11 @@ class TestGaussianDampingForceModule(unittest.TestCase, JaxTestData):
         self.jit_module = torch.jit.script(self.module)
 
     def test_consistent(self):
-        positions = torch.tensor(self.positions, requires_grad=True)
-        box = torch.tensor(self.box)
-        charges = torch.tensor(self.charges)
-        eta = torch.tensor(self.eta)
+        positions = to_torch_tensor(self.positions)
+        positions.requires_grad = True
+        box = to_torch_tensor(self.box)
+        charges = to_torch_tensor(self.charges)
+        eta = to_torch_tensor(self.eta)
 
         nblist = TorchNeighborList(cutoff=self.rcut)
         pairs = nblist(positions, box)
@@ -121,11 +123,12 @@ class TestSiteForceModule(unittest.TestCase, JaxTestData):
         self.jit_module = torch.jit.script(self.module)
 
     def test_consistent(self):
-        positions = torch.tensor(self.positions, requires_grad=True)
-        box = torch.tensor(self.box)
-        charges = torch.tensor(self.charges)
-        chi = torch.tensor(self.chi)
-        hardness = torch.tensor(self.hardness)
+        positions = to_torch_tensor(self.positions)
+        positions.requires_grad = True
+        box = to_torch_tensor(self.box)
+        charges = to_torch_tensor(self.charges)
+        chi = to_torch_tensor(self.chi)
+        hardness = to_torch_tensor(self.hardness)
 
         nblist = TorchNeighborList(cutoff=self.rcut)
         pairs = nblist(positions, box)
@@ -169,19 +172,25 @@ class TestQEqForceModule(unittest.TestCase):
         self.n_atoms = 100
 
         positions = rng.random((self.n_atoms, 3)) * self.l_box
-        self.positions = torch.tensor(positions, requires_grad=True)
-        self.box = torch.tensor(np.diag([self.l_box, self.l_box, self.l_box]))
+        self.positions = to_torch_tensor(positions)
+        self.positions.requires_grad = True
+        self.box = to_torch_tensor(np.diag([self.l_box, self.l_box, self.l_box]))
         charges = rng.uniform(-1.0, 1.0, (self.n_atoms))
         charges -= charges.mean()
-        self.charges = torch.tensor(charges, requires_grad=True)
+        self.charges = to_torch_tensor(charges)
+        self.charges.requires_grad = True
 
         chi = rng.random((self.n_atoms,))
-        self.chi = torch.tensor(chi)
-        self.hardness = torch.zeros(self.n_atoms)
-        self.eta = torch.ones(self.n_atoms) * 0.5
+        self.chi = to_torch_tensor(chi)
+        self.hardness = to_torch_tensor(np.zeros(self.n_atoms))
+        self.eta = to_torch_tensor(np.ones(self.n_atoms) * 0.5)
 
-        self.constraint_matrix = torch.ones((1, self.n_atoms))
-        self.constraint_vals = torch.zeros(1)
+        self.constraint_matrix = torch.ones(
+            (1, self.n_atoms), dtype=self.positions.dtype, device=self.positions.device
+        )
+        self.constraint_vals = torch.zeros(
+            1, dtype=self.positions.dtype, device=self.positions.device
+        )
         self.coeff_matrix = vector_projection_coeff_matrix(self.constraint_matrix)
 
         self.module_matinv = QEqForceModule(self.rcut, self.ethresh)
@@ -315,7 +324,7 @@ class TestQEqForceModule(unittest.TestCase):
     def test_hessian(self):
         charges = rng.uniform(-1.0, 1.0, (self.n_atoms))
         charges -= charges.mean()
-        charges = torch.tensor(charges)
+        charges = to_torch_tensor(charges)
 
         params = {
             "charge": charges,
