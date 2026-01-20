@@ -46,6 +46,8 @@ path = "README.md"
 test = [
     "pytest",
     "pytest-cov",
+    "pytest-html",
+    "mypy",
     "openmm>=7.7.0",
     "jax>=0.4.1, <=0.4.20",
     "jaxlib>=0.4.1, <=0.4.20",

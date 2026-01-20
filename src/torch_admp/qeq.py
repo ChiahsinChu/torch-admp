@@ -577,7 +577,11 @@ class QEqForceModule(BaseForceModule):
                 [
                     torch.cat([hessian, constraint_matrix.T], dim=1),
                     torch.cat(
-                        [constraint_matrix, torch.zeros(n_const, n_const)], dim=1
+                        [
+                            constraint_matrix,
+                            torch.zeros(n_const, n_const, device=positions.device),
+                        ],
+                        dim=1,
                     ),
                 ],
                 dim=0,
@@ -676,23 +680,24 @@ class QEqForceModule(BaseForceModule):
         except KeyError as exc:
             raise ValueError(f"Method {method} is not supported.") from exc
 
-        _q_opt = custom_root(
-            self.optimality,
-            argnums=1,
-            solve=torchopt.linear_solve.solve_normal_cg(maxiter=5, atol=0),
-        )(solver_fn)(
-            q0,
-            positions,
-            box,
-            chi,
-            hardness,
-            eta,
-            pairs,
-            ds,
-            buffer_scales,
-            constraint_matrix,
-            coeff_matrix,
-        )
+        with torch.device(positions.device):
+            _q_opt = custom_root(
+                self.optimality,
+                argnums=1,
+                solve=torchopt.linear_solve.solve_normal_cg(maxiter=5, atol=0),
+            )(solver_fn)(
+                q0,
+                positions,
+                box,
+                chi,
+                hardness,
+                eta,
+                pairs,
+                ds,
+                buffer_scales,
+                constraint_matrix,
+                coeff_matrix,
+            )
 
         q_opt = _q_opt.detach()
         q_opt.requires_grad = True

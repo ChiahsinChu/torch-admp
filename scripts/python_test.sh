@@ -4,8 +4,8 @@ set -e
 pushd "$(dirname "$0")/.."
 pytest --cov=torch_admp tests --cov-report=term-missing
 docstr-coverage src/torch_admp/ \
-    --skip-private \
-    --skip-property \
-    --accept-empty \
-    --exclude=".*/_version.py"
+	--skip-private \
+	--skip-property \
+	--accept-empty \
+	--exclude=".*/_version.py"
 popd

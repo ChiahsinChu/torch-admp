@@ -13,7 +13,7 @@ from scipy import constants
 from torch_admp.env import DEVICE
 from torch_admp.nblist import TorchNeighborList
 from torch_admp.pme import CoulombForceModule
-from torch_admp.utils import calc_grads, to_numpy_array
+from torch_admp.utils import calc_grads, to_numpy_array, to_torch_tensor
 
 from . import SEED
 
@@ -101,8 +101,9 @@ class TestOBCCoulombForceModule(unittest.TestCase):
         self.box = None
         charges = atoms.get_initial_charges()
 
-        _positions = torch.tensor(positions, requires_grad=True)
-        self.charges = torch.tensor(charges)
+        _positions = to_torch_tensor(positions)
+        _positions.requires_grad_(True)
+        self.charges = to_torch_tensor(charges).unsqueeze(0)
         self.positions = _positions.unsqueeze(0)
 
         self.nblist = TorchNeighborList(cutoff=4.0)
@@ -168,9 +169,10 @@ class TestPBCCoulombForceModule(unittest.TestCase):
         self.ref_system = TestOpenMMSimulation()
         self.ref_system.setup(real_space=True)
 
-        _positions = torch.tensor(self.ref_system.positions, requires_grad=True)
-        self.charges = torch.tensor(self.ref_system.charges).unsqueeze(0)
-        _box = torch.tensor(
+        _positions = to_torch_tensor(self.ref_system.positions)
+        _positions.requires_grad_(True)
+        self.charges = to_torch_tensor(self.ref_system.charges).unsqueeze(0)
+        _box = to_torch_tensor(
             np.diag(
                 [self.ref_system.l_box, self.ref_system.l_box, self.ref_system.l_box]
             )
@@ -227,21 +229,27 @@ class TestPBCCoulombForceModule(unittest.TestCase):
         # self.kmesh = tuple(ewald_params[1:])
         ref_energy, ref_forces = self.ref_system.run()
 
+        if torch.get_default_dtype() == torch.float32:
+            tol = 1e-3
+        elif torch.get_default_dtype() == torch.float64:
+            tol = 1e-5
+        else:
+            raise ValueError(f"Unsupported torch dtype {torch.get_default_dtype()}")
         # energy [eV]
         for e in [energy, jit_energy]:
             np.testing.assert_allclose(
                 to_numpy_array(e),
                 [ref_energy],
-                atol=1e-5,
-                rtol=1e-5,
+                atol=tol,
+                rtol=tol,
             )
         # force [eV/A]
         for f in [forces, jit_forces]:
             np.testing.assert_allclose(
                 to_numpy_array(f).reshape(-1, 3),
                 ref_forces,
-                atol=1e-5,
-                rtol=1e-5,
+                atol=tol,
+                rtol=tol,
             )
 
 
@@ -255,9 +263,10 @@ class TestPBCSlabCorrCoulombForceModule(unittest.TestCase):
         box = atoms.get_cell().array
         charges = atoms.get_initial_charges()
 
-        _positions = torch.tensor(positions, requires_grad=True)
-        _box = torch.tensor(box)
-        self.charges = torch.tensor(charges).unsqueeze(0)
+        _positions = to_torch_tensor(positions)
+        _positions.requires_grad_(True)
+        _box = to_torch_tensor(box)
+        self.charges = to_torch_tensor(charges).unsqueeze(0)
         self.positions = _positions.unsqueeze(0)
         self.box = _box.unsqueeze(0)
 
@@ -347,9 +356,10 @@ class TestCoulombForceModule(unittest.TestCase):
 
         # Setup for edge case tests
         self.n_atoms = 10
-        self.positions = torch.rand(1, self.n_atoms, 3, generator=torch_rng) * 10.0
-        self.box = torch.diag(torch.tensor([10.0, 10.0, 10.0])).unsqueeze(0)
-        self.charges = torch.randn(1, self.n_atoms, generator=torch_rng)
+
+        self.positions = to_torch_tensor(np_rng.random((1, self.n_atoms, 3)) * 10.0)
+        self.box = to_torch_tensor(np.diag([10.0, 10.0, 10.0])).unsqueeze(0)
+        self.charges = to_torch_tensor(np_rng.random((1, self.n_atoms)))
 
         self.nblist = TorchNeighborList(cutoff=4.0)
         self.pairs = self.nblist(

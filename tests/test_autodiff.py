@@ -74,7 +74,7 @@ def data_generator(natoms: int, l_box: float):
     """
     generator = torch.Generator(device=env.DEVICE).manual_seed(SEED)
     box = torch.rand([3, 3], device=env.DEVICE, dtype=dtype, generator=generator)
-    box = (box + box.T) + l_box * torch.eye(3)
+    box = (box + box.T) + l_box * torch.eye(3, device=env.DEVICE, dtype=dtype)
     positions = torch.rand(
         [natoms, 3], device=env.DEVICE, dtype=dtype, generator=generator
     )
@@ -83,9 +83,9 @@ def data_generator(natoms: int, l_box: float):
     positions.requires_grad_(True)
     box.requires_grad_(True)
 
-    placeholder_pairs = torch.ones(1, 2).to(torch.long)
-    placeholder_ds = torch.ones(1)
-    placeholder_buffer_scales = torch.zeros(1)
+    placeholder_pairs = torch.ones((1, 2), device=env.DEVICE, dtype=torch.long)
+    placeholder_ds = torch.ones(1, device=env.DEVICE, dtype=dtype)
+    placeholder_buffer_scales = torch.zeros(1, device=env.DEVICE, dtype=dtype)
 
     input_dict = {
         "positions": positions,

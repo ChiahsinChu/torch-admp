@@ -67,7 +67,9 @@ def dp_nblist(
         nlist,
     ) = extend_input_and_build_neighbor_list(
         positions,
-        torch.zeros(1, positions.shape[1]),
+        torch.zeros(
+            1, positions.shape[1], dtype=positions.dtype, device=positions.device
+        ),
         rcut,
         [nnei],
         box=box,
@@ -107,16 +109,17 @@ def vesin_nblist(
     device = positions.device
     calculator = NeighborList(cutoff=rcut, full_list=False)
 
-    # Handle the box parameter properly
-    box_cpu = box.to("cpu") if box is not None else None
-
-    # Use type ignore to work around the type checking issue
-    ii, jj, ds = calculator.compute(
-        points=positions.to("cpu"),
-        box=box_cpu,  # type: ignore
-        periodic=True,
-        quantities="ijd",
-    )
+    # run the following command with default device cpu
+    with torch.device("cpu"):
+        # Handle the box parameter properly
+        box_cpu = box.to("cpu") if box is not None else None
+        # Use type ignore to work around the type checking issue
+        ii, jj, ds = calculator.compute(
+            points=positions.to("cpu"),
+            box=box_cpu,  # type: ignore
+            periodic=True,
+            quantities="ijd",
+        )
     buffer_scales = torch.ones_like(ds).to(device)
     return torch.stack([ii, jj]).to(device).T, ds.to(device), buffer_scales
 
@@ -273,15 +276,16 @@ class TorchNeighborList(torch.nn.Module):
         super().__init__()
         self.cutoff = cutoff
         _t = torch.arange(-1, 2, device=DEVICE)
-        disp_mat = torch.cartesian_prod(_t, _t, _t)
-        self.register_buffer("disp_mat", disp_mat, persistent=True)
+        self.disp_mat = torch.cartesian_prod(_t, _t, _t)
 
-        self.pairs = torch.jit.annotate(torch.Tensor, torch.empty(1, dtype=torch.long))
+        self.pairs = torch.jit.annotate(
+            torch.Tensor, torch.empty(1, dtype=torch.long, device=DEVICE)
+        )
         self.buffer_scales = torch.jit.annotate(
-            torch.Tensor, torch.empty(1, dtype=torch.long)
+            torch.Tensor, torch.empty(1, dtype=torch.long, device=DEVICE)
         )
         self.ds = torch.jit.annotate(
-            torch.Tensor, torch.empty(1, dtype=GLOBAL_PT_FLOAT_PRECISION)
+            torch.Tensor, torch.empty(1, dtype=GLOBAL_PT_FLOAT_PRECISION, device=DEVICE)
         )
 
     def forward(

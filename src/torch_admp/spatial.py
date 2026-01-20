@@ -99,12 +99,14 @@ def build_quasi_internal(
     torch.Tensor
         N * 3 * 3: local frames, three axes arranged in rows
     """
+    dtype = r1.dtype
+    device = r1.device
     # n x 3
     vectorZ = dr / norm_dr.reshape(-1, 1)
     vectorX = torch.where(
         torch.logical_or(r1[1] != r2[1], r1[2] != r2[2]),
-        vectorZ + torch.tensor([1.0, 0.0, 0.0], device=vectorZ.device),
-        vectorZ + torch.tensor([0.0, 1.0, 0.0], device=vectorZ.device),
+        vectorZ + torch.tensor([1.0, 0.0, 0.0], dtype=dtype, device=device),
+        vectorZ + torch.tensor([0.0, 1.0, 0.0], dtype=dtype, device=device),
     )
 
     dot_xz = torch.matmul(vectorZ, vectorX)

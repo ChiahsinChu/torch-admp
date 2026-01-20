@@ -14,7 +14,7 @@ import torch
 from ase import units
 from scipy import constants
 
-from torch_admp.env import DEVICE, NP_PRECISION_DICT, PT_PRECISION_DICT
+from torch_admp.env import DEVICE
 
 
 # @torch.jit.script
@@ -235,9 +235,8 @@ class TorchConstants(torch.nn.Module):
         Electron volts (eV), Ångström (Ang), the atomic mass unit and Kelvin are defined as 1.0.
         """
         torch.nn.Module.__init__(self)
-        self.register_buffer("pi", torch.tensor(np.pi, device=DEVICE))
-        self.register_buffer("sqrt_pi", torch.tensor(np.sqrt(np.pi), device=DEVICE))
-
+        self.pi = np.pi
+        self.sqrt_pi = np.sqrt(np.pi)
         if units_dict is None:
             units_dict = {}
         user_energy = units_dict.get("energy", "eV")
@@ -256,21 +255,8 @@ class TorchConstants(torch.nn.Module):
         except AttributeError as exc:
             raise ValueError(f"Unknown energy unit: {user_energy}") from exc
 
-        self.register_buffer(
-            "length_coeff",
-            torch.tensor(
-                length_coeff,
-                device=DEVICE,
-            ),
-        )
-        self.register_buffer(
-            "energy_coeff",
-            torch.tensor(
-                energy_coeff,
-                device=DEVICE,
-            ),
-        )
-
+        self.length_coeff = length_coeff
+        self.energy_coeff = energy_coeff
         # self.register_buffer(
         #     "j2ev",
         #     torch.tensor(
@@ -284,52 +270,73 @@ class TorchConstants(torch.nn.Module):
         # )
 
         # vacuum electric permittivity in eV^-1 * angstrom^-1
-        self.register_buffer(
-            "epsilon",
-            torch.tensor(
-                constants.epsilon_0 / constants.elementary_charge * constants.angstrom,
-                device=DEVICE,
-            ),
+        self.epsilon = (
+            constants.epsilon_0 / constants.elementary_charge * constants.angstrom
         )
         # qqrd2e = 1 / (4 * np.pi * EPSILON)
         # eV
-        dielectric_value = 1.0 / (4.0 * np.pi * self.epsilon.item())
-        self.register_buffer(
-            "dielectric", torch.tensor(dielectric_value, device=DEVICE)
-        )
+        self.dielectric = 1.0 / (4.0 * np.pi * self.epsilon)
+
         # kJ/mol
         # DIELECTRIC = torch.tensor(1389.35455846).to(DEVICE)
         # self.dielectric = 1 / (4 * self.pi * self.epsilon) / self.energy_coeff
 
 
-# adapted from deepmd.pt.utils.utils.to_numpy_array
-def to_numpy_array(
-    xx,
-):
-    """
-    Convert PyTorch tensor to NumPy array with appropriate precision.
+try:
+    from deepmd.pt.utils.utils import to_numpy_array, to_torch_tensor
+except ImportError:
+    from typing import overload
 
-    Parameters
-    ----------
-    xx : torch.Tensor
-        Input PyTorch tensor
+    import ml_dtypes
 
-    Returns
-    -------
-    numpy.ndarray
-        NumPy array with appropriate precision
-    """
-    if xx is None:
-        return None
-    assert xx is not None
-    # Create a reverse mapping of PT_PRECISION_DICT
-    reverse_precision_dict = {v: k for k, v in PT_PRECISION_DICT.items()}
-    # Use the reverse mapping to find keys with the desired value
-    prec = reverse_precision_dict.get(xx.dtype, None)
-    prec = NP_PRECISION_DICT.get(prec, None)
-    if prec is None:
-        raise ValueError(f"unknown precision {xx.dtype}")
-    if xx.dtype == torch.bfloat16:
-        # https://github.com/pytorch/pytorch/issues/109873
-        xx = xx.float()
-    return xx.detach().cpu().numpy().astype(prec)
+    from torch_admp.env import NP_PRECISION_DICT, PT_PRECISION_DICT
+
+    @overload
+    def to_numpy_array(xx: torch.Tensor) -> np.ndarray: ...
+
+    @overload
+    def to_numpy_array(xx: None) -> None: ...
+
+    def to_numpy_array(
+        xx: torch.Tensor | None,
+    ) -> np.ndarray | None:
+        if xx is None:
+            return None
+        assert xx is not None
+        # Create a reverse mapping of PT_PRECISION_DICT
+        reverse_precision_dict = {v: k for k, v in PT_PRECISION_DICT.items()}
+        # Use the reverse mapping to find keys with the desired value
+        prec = reverse_precision_dict.get(xx.dtype, None)
+        prec = NP_PRECISION_DICT.get(prec, None)
+        if prec is None:
+            raise ValueError(f"unknown precision {xx.dtype}")
+        if xx.dtype == torch.bfloat16:
+            # https://github.com/pytorch/pytorch/issues/109873
+            xx = xx.float()
+        return xx.detach().cpu().numpy().astype(prec)
+
+    @overload
+    def to_torch_tensor(xx: np.ndarray) -> torch.Tensor: ...
+
+    @overload
+    def to_torch_tensor(xx: None) -> None: ...
+
+    def to_torch_tensor(
+        xx: np.ndarray | None,
+    ) -> torch.Tensor | None:
+        if xx is None:
+            return None
+        assert xx is not None
+        if not isinstance(xx, np.ndarray):
+            return xx
+        # Create a reverse mapping of NP_PRECISION_DICT
+        reverse_precision_dict = {v: k for k, v in NP_PRECISION_DICT.items()}
+        # Use the reverse mapping to find keys with the desired value
+        prec = reverse_precision_dict.get(xx.dtype.type, None)
+        prec = PT_PRECISION_DICT.get(prec, None)
+        if prec is None:
+            raise ValueError(f"unknown precision {xx.dtype}")
+        if xx.dtype == ml_dtypes.bfloat16:
+            # https://github.com/pytorch/pytorch/issues/109873
+            xx = xx.astype(np.float32)
+        return torch.tensor(xx, dtype=prec, device=DEVICE)

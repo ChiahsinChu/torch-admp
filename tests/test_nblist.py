@@ -19,7 +19,7 @@ from torch_admp.nblist import (
     sort_pairs,
     vesin_nblist,
 )
-from torch_admp.utils import to_numpy_array
+from torch_admp.utils import to_numpy_array, to_torch_tensor
 
 from . import SEED
 
@@ -57,8 +57,8 @@ class TestTorchNeighborList(unittest.TestCase):
         self.nblist_ref = nblist[msk]
 
         self.nblist = TorchNeighborList(rcut)
-        self.positions = torch.tensor(positions)
-        self.box = torch.tensor(box)
+        self.positions = to_torch_tensor(positions)
+        self.box = to_torch_tensor(box)
 
     def test_pairs(self):
         """Check that pairs are in the neighbor list.
@@ -97,8 +97,8 @@ class TestNBList(unittest.TestCase):
         box = np.diag([l_box, l_box, l_box])
         positions = np_rng.random((100, 3)) * l_box
 
-        self.positions = torch.tensor(positions)
-        self.box = torch.tensor(box)
+        self.positions = to_torch_tensor(positions)
+        self.box = to_torch_tensor(box)
 
         # test: cutoff > l_box / 2!!!
         self.rcut = 6.0
