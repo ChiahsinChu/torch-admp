@@ -20,7 +20,7 @@ For the unit tests, you can install the package from source with the following c
 
 ```bash
 git clone https://github.com/ChiahsinChu/torch-admp
-pip install torch-admp[test]
+pip install torch-admp[test,vesin]
 pip install "DMFF @ git+https://github.com/ChiahsinChu/DMFF.git@devel"
 ```
 

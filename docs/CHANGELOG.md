@@ -1,7 +1,7 @@
 ---
 status: draft
 author: AI Agent, Jia-Xin Zhu
-last_updated: 2026-01-20
+last_updated: 2026-01-21
 ---
 
 # CHANGELOG
@@ -10,6 +10,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- Multi-Python version testing matrix (3.10, 3.11)
+- Optional vesin dependency support with proper import handling
+
+### Changed
+
+- Updated minimum Python version requirement from 3.8 to 3.9
+- Made vesin an optional dependency instead of required
+- Enhanced CI workflow to test against multiple Python versions
+- Configured coverage reports to only upload for Python 3.11
+
+### Fixed
+
+- Added proper error handling for vesin_nblist when vesin is not installed
+- Improved test coverage for neighbor list functionality with enhanced consistency checks
 
 ## [1.1.4] - 2026-01-20
 
