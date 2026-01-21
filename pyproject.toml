@@ -14,13 +14,13 @@ name = "torch_admp"
 dynamic = ["version", "readme"]
 description = "ADMP in PyTorch backend"
 license = { file = ".license-header.txt" }
+requires-python = ">=3.9"
 dependencies = [
     "torch>=2.1.0",
     "torchopt==0.7.3",
     "numpy>=1.21",
     "scipy>=1.6.0",
     "ase",
-    "vesin[torch]",
     "ml_dtypes",
 ]
 [project.urls]
@@ -44,6 +44,7 @@ content-type = "text/markdown"
 path = "README.md"
 
 [project.optional-dependencies]
+vesin = ["vesin[torch]"]
 test = [
     "pytest",
     "pytest-cov",

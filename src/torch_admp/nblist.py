@@ -19,7 +19,11 @@ except ImportError:
     warnings.warn("deepmd.pt is required for dp_nblist", ImportWarning)
     extend_input_and_build_neighbor_list = None
 
-from vesin.torch import NeighborList
+try:
+    from vesin.torch import NeighborList
+except ImportError:
+    warnings.warn("vesin[torch] is required for vesin_nblist", ImportWarning)
+    NeighborList = None
 
 from torch_admp.env import DEVICE, GLOBAL_PT_FLOAT_PRECISION
 from torch_admp.spatial import pbc_shift
@@ -108,6 +112,10 @@ def vesin_nblist(
     tuple
         Tuple containing (pairs, ds, buffer_scales)
     """
+    if NeighborList is None:
+        raise ImportError(
+            "vesin[torch] is required for vesin_nblist. Please install vesin with torch support to use this function."
+        )
     device = positions.device
     calculator = NeighborList(cutoff=rcut, full_list=False)
 
