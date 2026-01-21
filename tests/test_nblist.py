@@ -116,6 +116,14 @@ class TestNBList(unittest.TestCase):
                 pkg_names="deepmd*",
                 reload_module=nblist,
             )
+        # test without vesin
+        # expect: import error inside the function
+        with self.assertRaises(ImportError):
+            run_test_without_packages(
+                func=self._test_consistent,
+                pkg_names="vesin*",
+                reload_module=nblist,
+            )
 
     def _test_consistent(self):
         pairs_1, ds_1, _buffer_scales = nblist.dp_nblist(

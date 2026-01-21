@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Multi-Python version testing matrix (3.9, 3.10, 3.11, 3.12)
+- Multi-Python version testing matrix (3.10, 3.11)
 - Optional vesin dependency support with proper import handling
 
 ### Changed
@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Added proper error handling for vesin_nblist when vesin is not installed
+- Improved test coverage for neighbor list functionality with enhanced consistency checks
 
 ## [1.1.4] - 2026-01-20
 
