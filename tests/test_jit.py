@@ -16,6 +16,7 @@ from torch_admp.nblist import TorchNeighborList
 from torch_admp.pme import CoulombForceModule
 from torch_admp.qeq import GaussianDampingForceModule, QEqForceModule, SiteForceModule
 from torch_admp.utils import calc_grads, to_numpy_array, to_torch_tensor
+from torch_admp import env
 
 from . import SEED
 
@@ -54,11 +55,11 @@ class JITTest:
         charges = np_rng.uniform(-1.0, 1.0, (n_atoms))
         charges -= charges.mean()
 
-        positions = to_torch_tensor(positions)
+        positions = to_torch_tensor(positions).to(env.GLOBAL_PT_FLOAT_PRECISION)
         positions.requires_grad_(True)
         if self.periodic:
-            box = to_torch_tensor(box)
-        charges = to_torch_tensor(charges)
+            box = to_torch_tensor(box).to(env.GLOBAL_PT_FLOAT_PRECISION)
+        charges = to_torch_tensor(charges).to(env.GLOBAL_PT_FLOAT_PRECISION)
         charges.requires_grad_(True)
 
         nblist = TorchNeighborList(cutoff=rcut)

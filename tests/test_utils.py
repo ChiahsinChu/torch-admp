@@ -15,7 +15,7 @@ rng = np.random.default_rng(seed=SEED)
 
 class TestArrayConversion(unittest.TestCase):
     def setUp(self):
-        self.ref_np_array = rng.random((3, 4))
+        self.ref_np_array = rng.random((3, 4)).astype(env.GLOBAL_NP_FLOAT_PRECISION)
         self.ref_torch_tensor = torch.tensor(
             self.ref_np_array,
             dtype=env.GLOBAL_PT_FLOAT_PRECISION,

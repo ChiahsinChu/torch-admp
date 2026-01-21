@@ -15,6 +15,7 @@ import torch
 from torch_admp import nblist
 from torch_admp.nblist import TorchNeighborList
 from torch_admp.utils import to_numpy_array, to_torch_tensor
+from torch_admp import env
 
 from . import SEED
 from .common import run_test_without_packages
@@ -53,8 +54,8 @@ class TestTorchNeighborList(unittest.TestCase):
         self.nblist_ref = nblist[msk]
 
         self.nblist = TorchNeighborList(rcut)
-        self.positions = to_torch_tensor(positions)
-        self.box = to_torch_tensor(box)
+        self.positions = to_torch_tensor(positions).to(env.GLOBAL_PT_FLOAT_PRECISION)
+        self.box = to_torch_tensor(box).to(env.GLOBAL_PT_FLOAT_PRECISION)
 
     def test_pairs(self):
         """Check that pairs are in the neighbor list.
@@ -93,8 +94,8 @@ class TestNBList(unittest.TestCase):
         box = np.diag([l_box, l_box, l_box])
         positions = np_rng.random((100, 3)) * l_box
 
-        self.positions = to_torch_tensor(positions)
-        self.box = to_torch_tensor(box)
+        self.positions = to_torch_tensor(positions).to(env.GLOBAL_PT_FLOAT_PRECISION)
+        self.box = to_torch_tensor(box).to(env.GLOBAL_PT_FLOAT_PRECISION)
 
         # test: cutoff > l_box / 2!!!
         self.rcut = 6.0
