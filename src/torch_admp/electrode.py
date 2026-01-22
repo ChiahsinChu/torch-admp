@@ -4,9 +4,9 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 import torch
 
-from torch_admp.qeq import QEqForceModule, matinv_optimize, pgrad_optimize
-from torch_admp.utils import calc_grads, to_numpy_array, to_torch_tensor
 from torch_admp import env
+from torch_admp.qeq import QEqForceModule, matinv_optimize, pgrad_optimize
+from torch_admp.utils import calc_grads, to_torch_tensor
 
 
 class PolarizableElectrode(QEqForceModule):
@@ -75,6 +75,9 @@ class PolarizableElectrode(QEqForceModule):
         """
         Compute the Coulomb force for the system
         """
+        device = positions.device
+        dtype = positions.dtype
+
         _energy = self.forward(
             positions,
             box,
@@ -94,7 +97,7 @@ class PolarizableElectrode(QEqForceModule):
         forces = -calc_grads(energy, positions)
 
         if efield is not None:
-            _efield = torch.zeros(3)
+            _efield = torch.zeros(3, dtype=dtype, device=device)
             _efield[self.slab_axis] = efield[self.slab_axis]
             forces = forces + charges.unsqueeze(1) * _efield
             energy = energy + torch.sum(
@@ -159,11 +162,14 @@ def setup_from_lammps(
     """
     Generate input data based on lammps-like constraint definitions
     """
+    device = env.DEVICE
+    dtype = env.GLOBAL_PT_FLOAT_PRECISION
+
     mask = np.zeros(n_atoms, dtype=bool)
 
-    eta = np.zeros(n_atoms, dtype=env.GLOBAL_NP_FLOAT_PRECISION)
-    chi = np.zeros(n_atoms, dtype=env.GLOBAL_NP_FLOAT_PRECISION)
-    hardness = np.zeros(n_atoms, dtype=env.GLOBAL_NP_FLOAT_PRECISION)
+    eta = np.zeros(n_atoms)
+    chi = np.zeros(n_atoms)
+    hardness = np.zeros(n_atoms)
 
     constraint_matrix = []
     constraint_vals = []
@@ -182,13 +188,13 @@ def setup_from_lammps(
                 )
             if constraint.ffield:
                 raise AttributeError("ffield with conq has not been implemented yet")
-            constraint_matrix.append(np.zeros((1, n_atoms), dtype=env.GLOBAL_NP_FLOAT_PRECISION))
+            constraint_matrix.append(np.zeros((1, n_atoms)))
             constraint_matrix[-1][0, constraint.indices] = 1.0
             constraint_vals.append(constraint.value)
         if constraint.mode == "conp":
             chi[constraint.indices] -= constraint.value
         if constraint.ffield:
-            ffield_electrode_mask.append(np.zeros((1, n_atoms), dtype=env.GLOBAL_NP_FLOAT_PRECISION))
+            ffield_electrode_mask.append(np.zeros((1, n_atoms)))
             ffield_electrode_mask[-1][0, constraint.indices] = 1.0
             ffield_potential.append(constraint.value)
 
@@ -197,16 +203,18 @@ def setup_from_lammps(
         ffield_potential = None
     elif len(ffield_electrode_mask) == 2:
         ffield_electrode_mask = torch.tensor(
-            np.concatenate(ffield_electrode_mask, axis=0), dtype=torch.bool, device=env.DEVICE,
+            np.concatenate(ffield_electrode_mask, axis=0),
+            dtype=torch.bool,
+            device=device,
         )
-        ffield_potential = to_torch_tensor(np.array(ffield_potential))
+        ffield_potential = to_torch_tensor(np.array(ffield_potential)).to(dtype)
         # if using ffield, electroneutrality should be enforced
         # symm = True
     else:
         raise AttributeError("number of ffield group should be 0 or 2")
 
     if symm:
-        constraint_matrix.append(np.ones((1, n_atoms), dtype=env.GLOBAL_NP_FLOAT_PRECISION))
+        constraint_matrix.append(np.ones((1, n_atoms)))
         constraint_vals.append(0.0)
 
     if len(constraint_matrix) > 0:
@@ -216,16 +224,16 @@ def setup_from_lammps(
         constraint_vals = to_torch_tensor(np.array(constraint_vals))
     else:
         number_electrode = mask.sum()
-        constraint_matrix = torch.zeros((0, number_electrode), dtype=env.GLOBAL_PT_FLOAT_PRECISION)
-        constraint_vals = torch.zeros(0, dtype=env.GLOBAL_PT_FLOAT_PRECISION)
+        constraint_matrix = torch.zeros((0, number_electrode), device=device)
+        constraint_vals = torch.zeros(0, device=device)
 
     return (
         to_torch_tensor(mask),
-        to_torch_tensor(eta),
-        to_torch_tensor(chi),
-        to_torch_tensor(hardness),
-        constraint_matrix,
-        constraint_vals,
+        to_torch_tensor(eta).to(dtype),
+        to_torch_tensor(chi).to(dtype),
+        to_torch_tensor(hardness).to(dtype),
+        constraint_matrix.to(dtype),
+        constraint_vals.to(dtype),
         ffield_electrode_mask,
         ffield_potential,
     )
@@ -313,10 +321,10 @@ def infer(
         ds,
         buffer_scales,
     )
-    
+
     # single frame
     assert _positions.shape[0] == 1
-    
+
     _q_opt, efield = charge_optimization(
         calculator,
         positions,
@@ -375,8 +383,8 @@ def charge_optimization(
     Perform QEq charge optimization
     """
     device = positions.device
-    dtype = positions.device
-    
+    dtype = positions.dtype
+
     if electrode_mask.sum() == 0:
         efield = None
         return charges[electrode_mask], efield
@@ -412,16 +420,20 @@ def charge_optimization(
         )
         chi = chi + chi_ffield
 
-        efield = torch.zeros(3)
+        efield = torch.zeros(3, dtype=dtype, device=device)
         efield[calculator.slab_axis] = _efield
     else:
         efield = None
 
     pair_mask = electrode_mask[pairs[:, 0]] & electrode_mask[pairs[:, 1]]
     # electrode_indices find the indices of electrode_mask which is True
-    electrode_indices = torch.arange(electrode_mask.size(0), device=device, dtype=torch.long)[electrode_mask]
+    electrode_indices = torch.arange(
+        electrode_mask.size(0), device=device, dtype=torch.long
+    )[electrode_mask]
     mapping = torch.zeros(electrode_mask.size(0), dtype=torch.long, device=device)
-    mapping[electrode_indices] = torch.arange(electrode_mask.sum(), device=device, dtype=torch.long)
+    mapping[electrode_indices] = torch.arange(
+        electrode_mask.sum().item(), device=device, dtype=torch.long
+    )
     pair_i = pairs[pair_mask][:, 0]
     pair_j = pairs[pair_mask][:, 1]
     new_pairs = torch.stack([mapping[pair_i], mapping[pair_j]], dim=1)
