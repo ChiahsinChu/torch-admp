@@ -103,7 +103,9 @@ class TestOBCCoulombForceModule(unittest.TestCase):
 
         _positions = to_torch_tensor(positions).to(GLOBAL_PT_FLOAT_PRECISION)
         _positions.requires_grad_(True)
-        self.charges = to_torch_tensor(charges).unsqueeze(0).to(GLOBAL_PT_FLOAT_PRECISION)
+        self.charges = (
+            to_torch_tensor(charges).unsqueeze(0).to(GLOBAL_PT_FLOAT_PRECISION)
+        )
         self.positions = _positions.unsqueeze(0)
 
         self.nblist = TorchNeighborList(cutoff=4.0)
@@ -169,9 +171,15 @@ class TestPBCCoulombForceModule(unittest.TestCase):
         self.ref_system = TestOpenMMSimulation()
         self.ref_system.setup(real_space=True)
 
-        _positions = to_torch_tensor(self.ref_system.positions).to(GLOBAL_PT_FLOAT_PRECISION)
+        _positions = to_torch_tensor(self.ref_system.positions).to(
+            GLOBAL_PT_FLOAT_PRECISION
+        )
         _positions.requires_grad_(True)
-        self.charges = to_torch_tensor(self.ref_system.charges).unsqueeze(0).to(GLOBAL_PT_FLOAT_PRECISION)
+        self.charges = (
+            to_torch_tensor(self.ref_system.charges)
+            .unsqueeze(0)
+            .to(GLOBAL_PT_FLOAT_PRECISION)
+        )
         _box = to_torch_tensor(
             np.diag(
                 [self.ref_system.l_box, self.ref_system.l_box, self.ref_system.l_box]
@@ -266,7 +274,9 @@ class TestPBCSlabCorrCoulombForceModule(unittest.TestCase):
         _positions = to_torch_tensor(positions).to(GLOBAL_PT_FLOAT_PRECISION)
         _positions.requires_grad_(True)
         _box = to_torch_tensor(box).to(GLOBAL_PT_FLOAT_PRECISION)
-        self.charges = to_torch_tensor(charges).unsqueeze(0).to(GLOBAL_PT_FLOAT_PRECISION)
+        self.charges = (
+            to_torch_tensor(charges).unsqueeze(0).to(GLOBAL_PT_FLOAT_PRECISION)
+        )
         self.positions = _positions.unsqueeze(0)
         self.box = _box.unsqueeze(0)
 
@@ -357,9 +367,17 @@ class TestCoulombForceModule(unittest.TestCase):
         # Setup for edge case tests
         self.n_atoms = 10
 
-        self.positions = to_torch_tensor(np_rng.random((1, self.n_atoms, 3)) * 10.0).to(GLOBAL_PT_FLOAT_PRECISION)
-        self.box = to_torch_tensor(np.diag([10.0, 10.0, 10.0])).unsqueeze(0).to(GLOBAL_PT_FLOAT_PRECISION)
-        self.charges = to_torch_tensor(np_rng.random((1, self.n_atoms))).to(GLOBAL_PT_FLOAT_PRECISION)
+        self.positions = to_torch_tensor(np_rng.random((1, self.n_atoms, 3)) * 10.0).to(
+            GLOBAL_PT_FLOAT_PRECISION
+        )
+        self.box = (
+            to_torch_tensor(np.diag([10.0, 10.0, 10.0]))
+            .unsqueeze(0)
+            .to(GLOBAL_PT_FLOAT_PRECISION)
+        )
+        self.charges = to_torch_tensor(np_rng.random((1, self.n_atoms))).to(
+            GLOBAL_PT_FLOAT_PRECISION
+        )
 
         self.nblist = TorchNeighborList(cutoff=4.0)
         self.pairs = self.nblist(

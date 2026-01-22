@@ -108,7 +108,9 @@ class CoulombForceModule(BaseForceModule):
         if spacing is not None:
             if isinstance(spacing, float):
                 spacing = [spacing, spacing, spacing]
-            self.spacing = to_torch_tensor(np.array(spacing)).to(GLOBAL_PT_FLOAT_PRECISION)
+            self.spacing = to_torch_tensor(np.array(spacing)).to(
+                GLOBAL_PT_FLOAT_PRECISION
+            )
         else:
             self.spacing = spacing
         self.rspace_flag = rspace
@@ -116,10 +118,16 @@ class CoulombForceModule(BaseForceModule):
         self.slab_axis = slab_axis
 
         self.real_energy = to_torch_tensor(np.zeros(1)).to(GLOBAL_PT_FLOAT_PRECISION)
-        self.reciprocal_energy = to_torch_tensor(np.zeros(1)).to(GLOBAL_PT_FLOAT_PRECISION)
+        self.reciprocal_energy = to_torch_tensor(np.zeros(1)).to(
+            GLOBAL_PT_FLOAT_PRECISION
+        )
         self.self_energy = to_torch_tensor(np.zeros(1)).to(GLOBAL_PT_FLOAT_PRECISION)
-        self.non_neutral_energy = to_torch_tensor(np.zeros(1)).to(GLOBAL_PT_FLOAT_PRECISION)
-        self.slab_corr_energy = to_torch_tensor(np.zeros(1)).to(GLOBAL_PT_FLOAT_PRECISION)
+        self.non_neutral_energy = to_torch_tensor(np.zeros(1)).to(
+            GLOBAL_PT_FLOAT_PRECISION
+        )
+        self.slab_corr_energy = to_torch_tensor(np.zeros(1)).to(
+            GLOBAL_PT_FLOAT_PRECISION
+        )
 
         # Currently only supprots pme_order=6
         # Because only the 6-th order spline function is hard implemented
