@@ -65,6 +65,7 @@ class CoulombForceModule(BaseForceModule):
         sel: Optional[list[int]] = None,
         kappa: Optional[float] = None,
         spacing: Union[List[float], float, None] = None,
+        kmesh: Union[List[int], int, None] = None,
     ) -> None:
         """
         Initialize the CoulombForceModule with PME.
@@ -104,7 +105,15 @@ class CoulombForceModule(BaseForceModule):
             else:
                 self.kappa = 0.0
         self.ethresh = ethresh
-        self.kmesh = torch.ones(3, dtype=torch.long, device=DEVICE)
+
+        if kmesh is not None:
+            # use user-defined kmesh
+            if isinstance(kmesh, int):
+                kmesh = [kmesh, kmesh, kmesh]
+            self.kmesh = to_torch_tensor(np.array(kmesh)).to(torch.long)
+        else:
+            self.kmesh = kmesh
+        # use spacing
         if spacing is not None:
             if isinstance(spacing, float):
                 spacing = [spacing, spacing, spacing]
@@ -113,6 +122,7 @@ class CoulombForceModule(BaseForceModule):
             )
         else:
             self.spacing = spacing
+
         self.rspace_flag = rspace
         self.slab_corr_flag = slab_corr
         self.slab_axis = slab_axis
@@ -342,16 +352,19 @@ class CoulombForceModule(BaseForceModule):
 
         box_inv = torch.linalg.inv(box)
         volume = torch.det(box)
-        box_diag = torch.diagonal(box, dim1=1, dim2=2)
-        if self.spacing is not None:
-            spacing = torch.as_tensor(
-                self.spacing, dtype=box_diag.dtype, device=box_diag.device
-            )
-            self.kmesh = torch.ceil(box_diag / spacing).to(torch.long)
+        if self.kmesh is not None:
+            kmesh = torch.tile(self.kmesh.unsqueeze(0), (nf, 1))
         else:
-            self.kmesh = torch.ceil(
-                2 * self.kappa * box_diag / (3.0 * self.ethresh ** (1.0 / 5.0))
-            ).to(torch.long)
+            box_diag = torch.diagonal(box, dim1=1, dim2=2)
+            if self.spacing is not None:
+                spacing = torch.as_tensor(
+                    self.spacing, dtype=box_diag.dtype, device=box_diag.device
+                )
+                kmesh = torch.ceil(box_diag / spacing).to(torch.long)
+            else:
+                kmesh = torch.ceil(
+                    2 * self.kappa * box_diag / (3.0 * self.ethresh ** (1.0 / 5.0))
+                ).to(torch.long)
 
         # for electrostatic, exclude gamma point
         gamma_flag = False
@@ -365,11 +378,11 @@ class CoulombForceModule(BaseForceModule):
                 positions[ii],
                 box_inv[ii],
                 _charges,
-                self.kmesh[ii],
+                kmesh[ii],
                 self.pme_shifts,
                 self.pme_order,
             )
-            kpts_int = setup_kpts_integer(self.kmesh[ii])
+            kpts_int = setup_kpts_integer(kmesh[ii])
             kpts = setup_kpts(box_inv[ii], kpts_int)
             m = torch.linspace(
                 -self.pme_order // 2 + 1,
@@ -385,7 +398,7 @@ class CoulombForceModule(BaseForceModule):
                         * torch.pi
                         * m
                         * kpts_int[None]
-                        / self.kmesh[ii].float().reshape(1, 1, 3)
+                        / kmesh[ii].float().reshape(1, 1, 3)
                     ),
                     dim=0,
                 ),

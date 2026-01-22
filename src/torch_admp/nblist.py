@@ -347,10 +347,10 @@ class TorchNeighborList(torch.nn.Module):
         """
         # calculate padding size. It is useful for all kinds of cells
         wrapped_pos = self.wrap_positions(positions, box)
-        norm_a = torch.cross(box[1], box[2]).norm()
-        norm_b = torch.cross(box[2], box[0]).norm()
-        norm_c = torch.cross(box[0], box[1]).norm()
-        volume = torch.sum(box[0] * torch.cross(box[1], box[2]))
+        norm_a = torch.cross(box[1], box[2], dim=-1).norm()
+        norm_b = torch.cross(box[2], box[0], dim=-1).norm()
+        norm_c = torch.cross(box[0], box[1], dim=-1).norm()
+        volume = torch.sum(box[0] * torch.cross(box[1], box[2], dim=-1))
 
         # get padding size and padding matrix to generate padded atoms. Use minimal image convention
         padding_a = torch.ceil(self.cutoff * norm_a / volume).long()
@@ -631,7 +631,11 @@ def check_cutoff(box: torch.Tensor, cutoff: float) -> None:
 
     # Compute normals to the three faces
     normals = torch.stack(
-        [torch.cross(a2, a3), torch.cross(a3, a1), torch.cross(a1, a2)]
+        [
+            torch.cross(a2, a3, dim=-1),
+            torch.cross(a3, a1, dim=-1),
+            torch.cross(a1, a2, dim=-1),
+        ]
     )  # shape (3, 3)
 
     # Normalize normals

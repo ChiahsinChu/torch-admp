@@ -225,11 +225,19 @@ class TestPBCCoulombForceModule(unittest.TestCase):
 
         nonbonded = self.ref_system.system.getForce(0)
         # A^-1 to nm^-1 for kappa
+        if self.module.kmesh is None:
+            kx = 1
+            ky = 1
+            kz = 1
+        else:
+            kx = self.module.kmesh[0, 0].item()
+            ky = self.module.kmesh[0, 1].item()
+            kz = self.module.kmesh[0, 2].item()
         nonbonded.setPMEParameters(
             self.module.kappa * 10.0,
-            self.module.kmesh[0, 0].item(),
-            self.module.kmesh[0, 1].item(),
-            self.module.kmesh[0, 2].item(),
+            kx,
+            ky,
+            kz,
         )
         # simulation = self.ref_system.simulation
         # ewald_params = nonbonded.getPMEParametersInContext(simulation.context)

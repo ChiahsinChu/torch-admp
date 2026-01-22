@@ -48,7 +48,7 @@ class JaxTestData:
         self.box = np.diag([self.l_box, self.l_box, self.l_box])
         self.chi = np.ones(self.n_atoms)
         self.hardness = np.zeros(self.n_atoms)
-        self.eta = np.ones(self.n_atoms) * 0.5
+        self.eta = rng.random(self.n_atoms) + 0.5
 
         # kJ/mol to eV
         j2ev = constants.physical_constants["joule-electron volt relationship"][0]

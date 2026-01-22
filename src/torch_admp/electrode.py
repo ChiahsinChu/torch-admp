@@ -28,7 +28,7 @@ class PolarizableElectrode(QEqForceModule):
     @torch.jit.export
     def calc_coulomb_potential(
         self,
-        electrode_mask: torch.Tensor,
+        electrode_mask: torch.Tensor | None,
         positions: torch.Tensor,
         box: torch.Tensor,
         eta: torch.Tensor,
@@ -36,11 +36,14 @@ class PolarizableElectrode(QEqForceModule):
         pairs: torch.Tensor,
         ds: torch.Tensor,
         buffer_scales: torch.Tensor,
-    ) -> torch.Tensor:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Calculate the vector b and add it in chi
         """
-        modified_charges = torch.where(electrode_mask == 0, charges, 0.0)
+        if electrode_mask is None:
+            modified_charges = charges.clone()
+        else:
+            modified_charges = torch.where(electrode_mask == 0, charges, 0.0)
         modified_charges.requires_grad_(True)
         energy = self.forward(
             positions,
@@ -58,7 +61,7 @@ class PolarizableElectrode(QEqForceModule):
         # single frame
         assert energy.size(0) == 1
         elec_potential = calc_grads(energy[0], modified_charges)
-        return elec_potential
+        return elec_potential, energy
 
     @torch.jit.export
     def coulomb_calculator(
@@ -396,7 +399,7 @@ def charge_optimization(
 
     # electrode + electrolyte
     chi_chemical = chi
-    chi_elec = calculator.calc_coulomb_potential(
+    chi_elec, _energy = calculator.calc_coulomb_potential(
         electrode_mask,
         positions,
         box,

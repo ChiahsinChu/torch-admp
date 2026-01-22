@@ -8,7 +8,7 @@ inversion and projected gradient methods, with support for different constraints
 and damping functions.
 """
 
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 import torchopt
@@ -253,7 +253,8 @@ class QEqForceModule(BaseForceModule):
         damping: bool = True,
         sel: Optional[list[int]] = None,
         kappa: Optional[float] = None,
-        spacing: Optional[List[float]] = None,
+        spacing: Union[List[float], float, None] = None,
+        kmesh: Union[List[int], int, None] = None,
     ) -> None:
         """
         Initialize the QEqForceModule.
@@ -306,6 +307,7 @@ class QEqForceModule(BaseForceModule):
                 units_dict=units_dict,
                 kappa=kappa,
                 spacing=spacing,
+                kmesh=kmesh,
             ),
         }
         if damping:

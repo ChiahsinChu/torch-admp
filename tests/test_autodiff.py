@@ -11,6 +11,7 @@ import numpy as np
 import torch
 
 from torch_admp import env
+from torch_admp.electrode import PolarizableElectrode
 from torch_admp.pme import CoulombForceModule
 from torch_admp.utils import calc_grads, to_numpy_array, to_torch_tensor
 
@@ -169,3 +170,42 @@ class TestGradCoulombForceModule(unittest.TestCase, FDTest):
             [natoms], device=env.DEVICE, dtype=dtype, generator=generator
         )
         self.input_dict["params"] = {"charge": charges}
+
+
+class TestPolarizableElectrode(unittest.TestCase):
+    def setUp(self):
+        natoms = 100
+        l_box = 10.0
+
+        generator, input_dict = data_generator(natoms, l_box)
+        charges = torch.rand(
+            [natoms], device=env.DEVICE, dtype=dtype, generator=generator
+        )
+        eta = torch.rand([natoms], device=env.DEVICE, dtype=dtype, generator=generator)
+        input_dict["charges"] = charges
+        input_dict["eta"] = eta
+        self.input_dict = input_dict
+
+        rcut = 5.0
+        self.calculator = PolarizableElectrode(
+            rcut=rcut,
+        )
+
+    def test(self):
+        places = 5
+        delta = 1e-5
+
+        def ff(v):
+            input_dict = self.input_dict.copy()
+            input_dict["charges"] = to_torch_tensor(v)
+            _phi_elec, e = self.calculator.calc_coulomb_potential(None, **input_dict)
+            return to_numpy_array(e)
+
+        fd_grad = finite_difference(
+            ff, to_numpy_array(self.input_dict["charges"]), delta=delta
+        )
+        rf_grad, _e = self.calculator.calc_coulomb_potential(None, **self.input_dict)
+        rf_grad = to_numpy_array(rf_grad)
+        np.testing.assert_almost_equal(
+            fd_grad.reshape(-1), rf_grad.reshape(-1), decimal=places
+        )
