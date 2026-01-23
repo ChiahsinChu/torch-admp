@@ -20,8 +20,6 @@ from torch_admp.utils import calc_grads, to_numpy_array, to_torch_tensor
 
 from . import SEED
 
-# torch.set_default_dtype(torch.float64)
-
 rcut = 4.0
 ethresh = 1e-5
 l_box = 10.0

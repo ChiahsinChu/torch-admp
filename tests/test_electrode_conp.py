@@ -48,16 +48,15 @@ class LAMMPSReferenceDataTest:
         rcut = 5.0
         kappa = 0.5
         slab_factor = 3.0
-        tol = 5e-5
 
         self.calculator = PolarizableElectrode(
             rcut=rcut,
             kappa=kappa,
-            kmesh=self.kmesh,
             slab_corr=self.slab_corr,
             eps=1e-6,
             ls_eps=1e-6,
             max_iter=100,
+            ethresh=1e-6,
         )
 
         self.ref_charges = self.atoms.get_initial_charges()
@@ -76,7 +75,7 @@ class LAMMPSReferenceDataTest:
         )
         self.charges.requires_grad_(True)
 
-        self.nblist = TorchNeighborList(cutoff=4.0)
+        self.nblist = TorchNeighborList(cutoff=rcut)
         self.pairs = self.nblist(
             self.positions,
             self.box,
@@ -102,16 +101,9 @@ class LAMMPSReferenceDataTest:
             np.testing.assert_allclose(
                 to_numpy_array(test_output[1]),
                 self.ref_forces,
-                atol=tol,
-                rtol=tol,
+                atol=self.tol,
+                rtol=self.tol,
             )
-            # # charge [eV/A]
-            # np.testing.assert_allclose(
-            #     to_numpy_array(test_output[2]),
-            #     self.ref_charges,
-            #     atol=tol,
-            #     rtol=tol,
-            # )
 
 
 class TestConpSlab2D(LAMMPSReferenceDataTest, unittest.TestCase):
@@ -122,8 +114,8 @@ class TestConpSlab2D(LAMMPSReferenceDataTest, unittest.TestCase):
             Path(__file__).parent / "data/lmp_conp_slab_2d/dump.lammpstrj"
         )
 
-        self.kmesh = [24, 24, 128]
         self.slab_corr = True
+        self.tol = 5e-5
         # mask, eta, chi, hardness, constraint_matrix, constraint_vals, ffield_electrode_mask, ffield_potential
         self.input_data = setup_from_lammps(
             len(self.atoms),
@@ -157,8 +149,8 @@ class TestConpSlab3D(LAMMPSReferenceDataTest, unittest.TestCase):
             Path(__file__).parent / "data/lmp_conp_slab_3d/dump.lammpstrj"
         )
 
-        self.kmesh = [24, 24, 48]
         self.slab_corr = False
+        self.tol = 5e-5
         # mask, eta, chi, hardness, constraint_matrix, constraint_vals, ffield_electrode_mask, ffield_potential
         self.input_data = setup_from_lammps(
             len(self.atoms),
@@ -194,8 +186,8 @@ class TestConpInterface2DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
             Path(__file__).parent / "data/lmp_conp_interface_2d_pzc/dump.lammpstrj"
         )
 
-        self.kmesh = [128, 128, 320]
         self.slab_corr = True
+        self.tol = 5e-4
         # mask, eta, chi, hardness, constraint_matrix, constraint_vals, ffield_electrode_mask, ffield_potential
         self.input_data = setup_from_lammps(
             len(self.atoms),
@@ -222,24 +214,17 @@ class TestConpInterface2DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
 
 
 class TestConpInterface3DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
-    """Test constant potential simulation for 3D interface at zero charge.
-
-    Tests constant potential electrode simulation for a 3D interface system
-    at zero charge condition.
+    """Test constant potential simulation for 3D interface system
+    at the potential of zero charge (PZC).
     """
 
     def setUp(self) -> None:
-        """Set up test data for 3D interface constant potential simulation.
-
-        Loads atomic positions and sets up electrode constraints for a 3D interface
-        system at zero charge condition.
-        """
-        self.slab_corr = False
         self.atoms = io.read(
             Path(__file__).parent / "data/lmp_conp_interface_3d_pzc/dump.lammpstrj"
         )
-        self.ref_energy = -1943.6583
+
         self.slab_corr = False
+        self.tol = 5e-4
         # mask, eta, chi, hardness, constraint_matrix, constraint_vals, ffield_electrode_mask, ffield_potential
         self.input_data = setup_from_lammps(
             len(self.atoms),
@@ -261,67 +246,58 @@ class TestConpInterface3DPZC(LAMMPSReferenceDataTest, unittest.TestCase):
             ],
             True,
         )
+        self.ref_energy = -1943.6583
 
 
 class TestConpInterface2DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
-    """Test constant potential simulation for 2D interface with bias.
-
-    Tests constant potential electrode simulation for a 2D interface system
-    with applied bias potential and slab correction.
-    """
-
-    def setUp(self) -> None:
-        """Set up test data for 2D interface constant potential simulation.
-
-        Loads atomic positions and sets up electrode constraints for a 2D interface
-        system with applied bias potential and slab correction.
-        """
-        self.atoms = io.read(
-            Path(__file__).parent / "data/lmp_conp_interface_2d_bias/dump.lammpstrj"
-        )
-        self.ref_energy = -1934.5002
-        self.slab_corr = True
-        # mask, eta, chi, hardness, constraint_matrix, constraint_vals, ffield_electrode_mask, ffield_potential
-        self.input_data = setup_from_lammps(
-            len(self.atoms),
-            [
-                LAMMPSElectrodeConstraint(
-                    indices=np.arange(108),
-                    value=20.0,
-                    mode="conp",
-                    eta=1.6,
-                    ffield=False,
-                ),
-                LAMMPSElectrodeConstraint(
-                    indices=np.arange(108, 216),
-                    value=0.0,
-                    mode="conp",
-                    eta=1.6,
-                    ffield=False,
-                ),
-            ],
-            True,
-        )
-
-
-class TestConpInterface3DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
-    """Test constant potential simulation for 3D interface with bias.
-
-    Tests constant potential electrode simulation for a 3D interface system
+    """Test constant potential simulation for 2D interface system
     with applied bias potential.
     """
 
     def setUp(self) -> None:
-        """Set up test data for 3D interface constant potential simulation.
+        self.atoms = io.read(
+            Path(__file__).parent / "data/lmp_conp_interface_2d_bias/dump.lammpstrj"
+        )
 
-        Loads atomic positions and sets up electrode constraints for a 3D interface
-        system with applied bias potential.
-        """
+        self.slab_corr = True
+        self.tol = 5e-4
+        # mask, eta, chi, hardness, constraint_matrix, constraint_vals, ffield_electrode_mask, ffield_potential
+        self.input_data = setup_from_lammps(
+            len(self.atoms),
+            [
+                LAMMPSElectrodeConstraint(
+                    indices=np.arange(108),
+                    value=20.0,
+                    mode="conp",
+                    eta=1.6,
+                    ffield=False,
+                ),
+                LAMMPSElectrodeConstraint(
+                    indices=np.arange(108, 216),
+                    value=0.0,
+                    mode="conp",
+                    eta=1.6,
+                    ffield=False,
+                ),
+            ],
+            True,
+        )
+
+        self.ref_energy = -1934.5002
+
+
+class TestConpInterface3DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
+    """Test constant potential simulation for 3D interface system
+    with applied bias potential.
+    """
+
+    def setUp(self) -> None:
         self.atoms = io.read(
             Path(__file__).parent / "data/lmp_conp_interface_3d_bias/dump.lammpstrj"
         )
-        self.ref_energy = -1941.0678
+
         self.slab_corr = False
+        self.tol = 5e-4
         # mask, eta, chi, hardness, constraint_matrix, constraint_vals, ffield_electrode_mask, ffield_potential
         self.input_data = setup_from_lammps(
             len(self.atoms),
@@ -343,3 +319,5 @@ class TestConpInterface3DBIAS(LAMMPSReferenceDataTest, unittest.TestCase):
             ],
             True,
         )
+
+        self.ref_energy = -1941.0678

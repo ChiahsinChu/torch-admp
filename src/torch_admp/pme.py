@@ -113,6 +113,8 @@ class CoulombForceModule(BaseForceModule):
             self.kmesh = to_torch_tensor(np.array(kmesh)).to(torch.long)
         else:
             self.kmesh = kmesh
+        # record the actually used kmesh
+        self._kmesh = torch.zeros(3, device=DEVICE, dtype=torch.long)
         # use spacing
         if spacing is not None:
             if isinstance(spacing, float):
@@ -231,7 +233,7 @@ class CoulombForceModule(BaseForceModule):
             )
         else:
             energy = self._forward_obc(charges, pairs, ds, buffer_scales)
-        return energy / getattr(self.const_lib, "energy_coeff")
+        return energy
 
     def _forward_pbc(
         self,
@@ -313,7 +315,6 @@ class CoulombForceModule(BaseForceModule):
         # qi or qj: nf, np
         qi = torch.gather(charges, 1, pairs[:, :, 0])
         qj = torch.gather(charges, 1, pairs[:, :, 1])
-
         e_sr = torch.sum(
             torch.erfc(self.kappa * ds)
             * qi
@@ -348,6 +349,7 @@ class CoulombForceModule(BaseForceModule):
             Reciprocal-space contribution to Coulomb energy
         """
         device = positions.device
+        dtype = positions.dtype
         nf = positions.size(0)
 
         box_inv = torch.linalg.inv(box)
@@ -389,6 +391,7 @@ class CoulombForceModule(BaseForceModule):
                 self.pme_order // 2 - 1,
                 self.pme_order - 1,
                 device=device,
+                dtype=dtype,
             ).reshape(self.pme_order - 1, 1, 1)
             theta_k = torch.prod(
                 torch.sum(
@@ -414,8 +417,9 @@ class CoulombForceModule(BaseForceModule):
             else:
                 coeff_k = coeff_k_func(kpts[3, :], self.kappa, volume[ii])
                 E_k = coeff_k * ((S_k.real**2 + S_k.imag**2) / theta_k**2)
-            # return
             all_ener.append(torch.sum(E_k) * getattr(self.const_lib, "dielectric"))
+
+            self._kmesh = kmesh[ii].clone()
         return torch.stack(all_ener)
 
     def _forward_pbc_self(

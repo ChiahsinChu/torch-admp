@@ -109,6 +109,7 @@ class GaussianDampingForceModule(BaseForceModule):
         eta_ij = torch.sqrt((eta_i**2 + eta_j**2) * 2)
         # avoid nan when calculating grad if eta_ij is zero
         eta_ij = torch.where(eta_ij == 0, 1e-10, eta_ij)
+
         pre_pair = -torch.erfc(ds / eta_ij)
         # nf, np
         qi = torch.gather(charges, 1, pairs[:, :, 0])
@@ -125,7 +126,7 @@ class GaussianDampingForceModule(BaseForceModule):
 
         e_sr = (e_sr_pair + e_sr_self) * getattr(self.const_lib, "dielectric")
         # eV to user-defined energy unit
-        return e_sr / getattr(self.const_lib, "energy_coeff")
+        return e_sr
 
 
 class SiteForceModule(BaseForceModule):
@@ -205,7 +206,7 @@ class SiteForceModule(BaseForceModule):
         )
         charges = params["charge"].reshape(nf, na)
         e = chi * charges + hardness * charges**2
-        return torch.sum(e, dim=-1) / getattr(self.const_lib, "energy_coeff")
+        return torch.sum(e, dim=-1)
 
 
 class QEqForceModule(BaseForceModule):
@@ -401,6 +402,7 @@ class QEqForceModule(BaseForceModule):
                 buffer_scales,
                 params,
             )
+            # print(energy)
         return energy
 
     @torch.jit.export

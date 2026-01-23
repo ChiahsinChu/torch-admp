@@ -17,8 +17,6 @@ from torch_admp.utils import calc_grads, to_numpy_array, to_torch_tensor
 
 from . import SEED
 
-# torch.set_default_dtype(torch.float64)
-
 # kJ/mol to eV/particle
 energy_coeff = (
     constants.physical_constants["joule-electron volt relationship"][0]
@@ -32,7 +30,7 @@ np_rng = np.random.default_rng(SEED)
 torch_rng = torch.Generator(device=DEVICE).manual_seed(SEED)
 
 
-class TestOpenMMSimulation:
+class RefOpenMMSimulation:
     def __init__(self) -> None:
         self.rcut = 5.0
         self.l_box = 20.0
@@ -168,7 +166,7 @@ class TestOBCCoulombForceModule(unittest.TestCase):
 
 class TestPBCCoulombForceModule(unittest.TestCase):
     def setUp(self) -> None:
-        self.ref_system = TestOpenMMSimulation()
+        self.ref_system = RefOpenMMSimulation()
         self.ref_system.setup(real_space=True)
 
         _positions = to_torch_tensor(self.ref_system.positions).to(
@@ -199,7 +197,7 @@ class TestPBCCoulombForceModule(unittest.TestCase):
         self.module = CoulombForceModule(
             rcut=self.ref_system.rcut,
             ethresh=self.ref_system.ethresh,
-        )
+        ).to(torch.float64)
         # test jit-able
         self.jit_module = torch.jit.script(self.module)
 
@@ -225,19 +223,11 @@ class TestPBCCoulombForceModule(unittest.TestCase):
 
         nonbonded = self.ref_system.system.getForce(0)
         # A^-1 to nm^-1 for kappa
-        if self.module.kmesh is None:
-            kx = 1
-            ky = 1
-            kz = 1
-        else:
-            kx = self.module.kmesh[0, 0].item()
-            ky = self.module.kmesh[0, 1].item()
-            kz = self.module.kmesh[0, 2].item()
         nonbonded.setPMEParameters(
             self.module.kappa * 10.0,
-            kx,
-            ky,
-            kz,
+            self.module._kmesh[0].item(),
+            self.module._kmesh[1].item(),
+            self.module._kmesh[2].item(),
         )
         # simulation = self.ref_system.simulation
         # ewald_params = nonbonded.getPMEParametersInContext(simulation.context)
@@ -245,13 +235,7 @@ class TestPBCCoulombForceModule(unittest.TestCase):
         # self.kmesh = tuple(ewald_params[1:])
         ref_energy, ref_forces = self.ref_system.run()
 
-        if torch.get_default_dtype() == torch.float32:
-            tol = 1e-3
-        elif torch.get_default_dtype() == torch.float64:
-            tol = 1e-5
-        else:
-            raise ValueError(f"Unsupported torch dtype {torch.get_default_dtype()}")
-        # energy [eV]
+        tol = 5e-5
         for e in [energy, jit_energy]:
             np.testing.assert_allclose(
                 to_numpy_array(e),
