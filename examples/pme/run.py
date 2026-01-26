@@ -1,45 +1,45 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
-import numpy as np
-import torch
+"""
+PME Examples Runner for torch-admp
 
-from torch_admp.nblist import TorchNeighborList
-from torch_admp.pme import CoulombForceModule
-from torch_admp.utils import calc_grads
+This script runs all PME examples to demonstrate the full functionality
+of the PME implementation in torch-admp.
+"""
 
-torch.set_default_device("cuda")
-torch.set_default_dtype(torch.float64)
+import sys
+from pathlib import Path
+
+# Import the run_all module
+from run_all import main as run_all_main
+
+
+def main():
+    """Main entry point for PME examples."""
+    # Check if we're in the right directory
+    current_dir = Path(__file__).parent
+    if not (current_dir / "run_all.py").exists():
+        print("Error: run_all.py not found in the same directory.")
+        print("Please make sure all example files are present.")
+        return 1
+
+    print("PME Examples for torch-admp")
+    print("=" * 60)
+    print("This script demonstrates the comprehensive PME functionality in torch-admp.")
+    print("Each example focuses on a specific aspect of the PME implementation.")
+    print("\nAvailable individual examples:")
+    print("  - basic_pme.py: Basic PME usage")
+    print("  - advanced_parameters.py: Advanced PME parameters")
+    print("  - energy_components.py: Energy component access")
+    print("  - jit_compilation.py: JIT compilation")
+    print("  - batch_processing.py: Batch processing")
+    print("  - error_handling.py: Error handling")
+    print("  - slab_vs_3d.py: 3D PBC vs 2D slab correction")
+    print("  - setup_ewald.py: Setup Ewald parameters")
+    print("\nRunning all examples...")
+
+    # Run all examples
+    return run_all_main()
+
 
 if __name__ == "__main__":
-    rcut = 6.0
-    n_atoms = 500
-    ethresh = 1e-4
-
-    l_box = 20.0
-
-    positions = np.random.rand(n_atoms, 3) * l_box
-    box = np.diag([l_box, l_box, l_box])
-    charges = np.random.uniform(-1.0, 1.0, (n_atoms))
-    charges -= charges.mean()
-
-    positions = torch.tensor(
-        positions,
-        requires_grad=True,
-    )
-    box = torch.tensor(
-        box,
-        requires_grad=False,
-    )
-    charges = torch.tensor(
-        charges,
-        requires_grad=False,
-    )
-
-    # calculate pairs
-    nblist = TorchNeighborList(cutoff=rcut)
-    pairs = nblist(positions, box)
-    ds = nblist.get_ds()
-    buffer_scales = nblist.get_buffer_scales()
-
-    module = CoulombForceModule(rcut=rcut, ethresh=ethresh)
-    energy = module(positions, box, pairs, ds, buffer_scales, {"charge": charges})
-    forces = -calc_grads(energy, positions)
+    sys.exit(main())

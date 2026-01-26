@@ -27,7 +27,7 @@ pip install torch-admp[test,vesin]
 pip install "DMFF @ git+https://github.com/ChiahsinChu/DMFF.git@ut_torch-admp"
 # run tests
 cd torch-admp
-pytest --cov=torch_admp tests 
+pytest --cov=torch_admp tests
 ```
 
 ## [Documentation](https://chiahsinchu.github.io/torch-admp/)

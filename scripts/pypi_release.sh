@@ -4,8 +4,8 @@ set -e
 pushd "$(dirname "$0")/.."
 # clear dist/ if exist
 if [ -d "dist" ]; then
-    rm -rf dist/*
-    echo "Cleared dist/ directory"
+	rm -rf dist/*
+	echo "Cleared dist/ directory"
 fi
 python -m build
 twine check dist/*
