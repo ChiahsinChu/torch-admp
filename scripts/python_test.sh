@@ -11,5 +11,6 @@ docstr-coverage src/torch_admp/ \
 	--skip-private \
 	--skip-property \
 	--accept-empty \
-	--exclude=".*/_version.py"
+	--exclude=".*/_version.py" \
+	--badge="docs/badges/"
 popd

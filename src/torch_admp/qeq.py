@@ -15,6 +15,7 @@ import torchopt
 from torchopt.diff.implicit import custom_root
 
 from torch_admp.base_force import BaseForceModule
+from torch_admp.env import DEVICE
 from torch_admp.optimizer import update_pr
 from torch_admp.pme import CoulombForceModule
 from torch_admp.utils import (
@@ -106,11 +107,12 @@ class GaussianDampingForceModule(BaseForceModule):
         # nf, np
         eta_i = torch.gather(eta, 1, pairs[:, :, 0])
         eta_j = torch.gather(eta, 1, pairs[:, :, 1])
-        eta_ij = torch.sqrt((eta_i**2 + eta_j**2) * 2)
+        # quadratic mean
+        eta_ij = torch.sqrt((eta_i**2 + eta_j**2) / 2)
         # avoid nan when calculating grad if eta_ij is zero
         eta_ij = torch.where(eta_ij == 0, 1e-10, eta_ij)
+        pre_pair = -torch.erfc(ds / (2 * eta_ij))
 
-        pre_pair = -torch.erfc(ds / eta_ij)
         # nf, np
         qi = torch.gather(charges, 1, pairs[:, :, 0])
         qj = torch.gather(charges, 1, pairs[:, :, 1])
@@ -125,7 +127,6 @@ class GaussianDampingForceModule(BaseForceModule):
         e_sr_self = torch.sum(pre_self * charges * charges, dim=-1)
 
         e_sr = (e_sr_pair + e_sr_self) * getattr(self.const_lib, "dielectric")
-        # eV to user-defined energy unit
         return e_sr
 
 
@@ -1239,24 +1240,25 @@ def pgrad_optimize(
     except KeyError as exc:
         raise ValueError(f"Method {method} is not supported.") from exc
 
-    out = custom_root(
-        module.optimality,
-        argnums=1,
-        has_aux=True,
-        solve=torchopt.linear_solve.solve_normal_cg(maxiter=5, atol=0),
-    )(solver_fn)(
-        q0,
-        positions,
-        box,
-        chi,
-        hardness,
-        eta,
-        pairs,
-        ds,
-        buffer_scales,
-        constraint_matrix,
-        coeff_matrix,
-    )
+    with torch.device(device=DEVICE):
+        out = custom_root(
+            module.optimality,
+            argnums=1,
+            has_aux=True,
+            solve=torchopt.linear_solve.solve_normal_cg(maxiter=5, atol=0),
+        )(solver_fn)(
+            q0,
+            positions,
+            box,
+            chi,
+            hardness,
+            eta,
+            pairs,
+            ds,
+            buffer_scales,
+            constraint_matrix,
+            coeff_matrix,
+        )
     if out[1] == -1:
         Warning("Optimization did not converge.")
     module.converge_iter = out[1]

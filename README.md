@@ -32,7 +32,7 @@ This project is licensed under the LGPL-3.0-or-later license. See the [LICENSE](
 
 ## Citation
 
-If you use torch-dplr in your research, please refer to the full citation details in the [CITATION.cff](CITATION.cff) file.
+If you use torch-admp in your research, please refer to the full citation details in the [CITATION.cff](CITATION.cff) file.
 
 ## Contributing
 

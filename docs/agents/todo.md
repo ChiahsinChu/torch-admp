@@ -1,7 +1,7 @@
 ---
 status: draft
 author: AI Agent, Jia-Xin Zhu
-last_updated: 2026-01-12
+last_updated: 2026-01-26
 ---
 
 # torch-admp Development Plans
