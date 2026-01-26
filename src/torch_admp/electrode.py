@@ -1,4 +1,13 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
+"""
+Electrode models and constraints for molecular dynamics simulations.
+
+This module implements polarizable electrode models and constraint handling
+for constant potential (CONP) and constant charge (CONQ) electrode simulations.
+It provides functionality for charge equilibration (QEq) with electrode constraints,
+finite field calculations, and integration with LAMMPS electrode fix implementations.
+"""
+
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
@@ -23,6 +32,17 @@ class PolarizableElectrode(QEqForceModule):
     """
 
     def __init__(self, rcut: float, ethresh: float = 1e-5, **kwargs) -> None:
+        """Initialize a PolarizableElectrode instance.
+
+        Parameters
+        ----------
+        rcut : float
+            cutoff radius for short-range interactions
+        ethresh : float, optional
+            energy threshold for electrostatic interaction, by default 1e-5
+        **kwargs : dict
+            Additional keyword arguments passed to parent class
+        """
         super().__init__(rcut, ethresh, **kwargs)
 
     @torch.jit.export
@@ -97,6 +117,10 @@ class PolarizableElectrode(QEqForceModule):
         # single frame
         assert _energy.size(0) == 1
         energy = _energy[0]
+        if not positions.requires_grad:
+            raise ValueError(
+                "positions must require grad to compute forces; call positions.requires_grad_(True)"
+            )
         forces = -calc_grads(energy, positions)
 
         if efield is not None:
@@ -143,6 +167,25 @@ class LAMMPSElectrodeConstraint:
         hardness: float = 0.0,
         ffield: bool = False,
     ) -> None:
+        """Initialize a LAMMPSElectrodeConstraint instance.
+
+        Parameters
+        ----------
+        indices : Union[List[int], np.ndarray]
+            indices of the atoms in constraint
+        mode : str
+            conp or conq
+        value : float
+            value of the constraint (potential or charge)
+        eta : float
+            eta as used in LAMMPS (in length^-1)
+        chi : float, optional
+            electronegativity [V], by default 0.0 (single element)
+        hardness : float, optional
+            atomic hardness [V/e], by default 0.0
+        ffield : bool, optional
+            if used as ffield group, by default False
+        """
         self.indices = np.array(indices, dtype=int)
         # assert one dimension array
         assert self.indices.ndim == 1
@@ -311,6 +354,51 @@ def infer(
     ffield_potential: Optional[torch.Tensor],
     method: str = "lbfgs",
 ):
+    """Perform electrode charge optimization and compute energy and forces.
+
+    Parameters
+    ----------
+    calculator : PolarizableElectrode
+        The polarizable electrode calculator instance
+    positions : torch.Tensor
+        Atomic positions with shape (n_atoms, 3)
+    box : torch.Tensor
+        Simulation box vectors with shape (3, 3)
+    charges : torch.Tensor
+        Initial atomic charges with shape (n_atoms,)
+    pairs : torch.Tensor
+        Neighbor pair list with shape (n_pairs, 2)
+    ds : torch.Tensor
+        Distances between atom pairs with shape (n_pairs,)
+    buffer_scales : torch.Tensor
+        Buffer scaling factors with shape (n_pairs,)
+    electrode_mask : torch.Tensor
+        Boolean mask identifying electrode atoms with shape (n_atoms,)
+    eta : torch.Tensor
+        Slater-type orbital decay parameters with shape (n_atoms,)
+    chi : torch.Tensor
+        Electronegativity parameters with shape (n_atoms,)
+    hardness : torch.Tensor
+        Atomic hardness parameters with shape (n_atoms,)
+    constraint_matrix : Optional[torch.Tensor]
+        Matrix of constraint equations
+    constraint_vals : Optional[torch.Tensor]
+        Values of constraint equations
+    ffield_electrode_mask : Optional[torch.Tensor]
+        Mask for finite field electrode groups
+    ffield_potential : Optional[torch.Tensor]
+        Applied potential for finite field calculations
+    method : str, optional
+        Optimization method ('lbfgs' or 'matinv'), by default "lbfgs"
+
+    Returns
+    -------
+    Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+        A tuple containing:
+        - energy: Total system energy
+        - forces: Forces on all atoms
+        - q_opt: Optimized charges for all atoms
+    """
     (
         _positions,
         _box,

@@ -1,7 +1,7 @@
 ---
 status: draft
 author: AI Agent, Jia-Xin Zhu
-last_updated: 2026-01-21
+last_updated: 2026-01-26
 ---
 
 # CHANGELOG
@@ -11,11 +11,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.5] - 2026-01-26
+
+### Added
+
+- Restored polarizable electrode module with CONP/CONQ support
+- Improved energy unit handling in electrode calculations
+
+### Changed
+
+- Updated electrode implementation with improved PME integration
+- Enhanced CI configuration for electrode testing
+- Updated project metadata and citation information
+- Ensured consistent tensor precision across the codebase
+- Updated dependency requirements for conda environments
+
+### Fixed
+
+- Fixed citation metadata formatting
+- Code fixes for electrode module stability
+- Python code formatting improvements
+
 ## [Unreleased]
 
 ### Added
 
-- Multi-Python version testing matrix (3.10, 3.11)
+- Multi-Python version testing matrix (3.9, 3.10, 3.11, 3.12)
 - Optional vesin dependency support with proper import handling
 
 ### Changed

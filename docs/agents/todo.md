@@ -36,4 +36,4 @@ last_updated: 2026-01-26
 
 ## Chores
 
-- [ ] update release in github and zenodo
+- [x] update release in github and zenodo
