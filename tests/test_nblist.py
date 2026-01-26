@@ -12,10 +12,9 @@ import freud
 import numpy as np
 import torch
 
-from torch_admp import nblist
+from torch_admp import env, nblist
 from torch_admp.nblist import TorchNeighborList
 from torch_admp.utils import to_numpy_array, to_torch_tensor
-from torch_admp import env
 
 from . import SEED
 from .common import run_test_without_packages

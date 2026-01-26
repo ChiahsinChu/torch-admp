@@ -14,6 +14,7 @@ try:
 except ImportError:
     DMFF_AVAILABLE = False
 
+from torch_admp import env
 from torch_admp.nblist import TorchNeighborList
 from torch_admp.qeq import (
     GaussianDampingForceModule,
@@ -28,7 +29,6 @@ from torch_admp.utils import (
     to_torch_tensor,
     vector_projection_coeff_matrix,
 )
-from torch_admp import env
 
 from . import SEED
 
@@ -48,7 +48,7 @@ class JaxTestData:
         self.box = np.diag([self.l_box, self.l_box, self.l_box])
         self.chi = np.ones(self.n_atoms)
         self.hardness = np.zeros(self.n_atoms)
-        self.eta = np.ones(self.n_atoms) * 0.5
+        self.eta = rng.random(self.n_atoms) + 0.5
 
         # kJ/mol to eV
         j2ev = constants.physical_constants["joule-electron volt relationship"][0]
@@ -175,7 +175,9 @@ class TestQEqForceModule(unittest.TestCase):
         positions = rng.random((self.n_atoms, 3)) * self.l_box
         self.positions = to_torch_tensor(positions).to(env.GLOBAL_PT_FLOAT_PRECISION)
         self.positions.requires_grad = True
-        self.box = to_torch_tensor(np.diag([self.l_box, self.l_box, self.l_box])).to(env.GLOBAL_PT_FLOAT_PRECISION)
+        self.box = to_torch_tensor(np.diag([self.l_box, self.l_box, self.l_box])).to(
+            env.GLOBAL_PT_FLOAT_PRECISION
+        )
         charges = rng.uniform(-1.0, 1.0, (self.n_atoms))
         charges -= charges.mean()
         self.charges = to_torch_tensor(charges).to(env.GLOBAL_PT_FLOAT_PRECISION)
@@ -183,8 +185,12 @@ class TestQEqForceModule(unittest.TestCase):
 
         chi = rng.random((self.n_atoms,))
         self.chi = to_torch_tensor(chi).to(env.GLOBAL_PT_FLOAT_PRECISION)
-        self.hardness = to_torch_tensor(np.zeros(self.n_atoms)).to(env.GLOBAL_PT_FLOAT_PRECISION)
-        self.eta = to_torch_tensor(np.ones(self.n_atoms) * 0.5).to(env.GLOBAL_PT_FLOAT_PRECISION)
+        self.hardness = to_torch_tensor(np.zeros(self.n_atoms)).to(
+            env.GLOBAL_PT_FLOAT_PRECISION
+        )
+        self.eta = to_torch_tensor(np.ones(self.n_atoms) * 0.5).to(
+            env.GLOBAL_PT_FLOAT_PRECISION
+        )
 
         self.constraint_matrix = torch.ones(
             (1, self.n_atoms), dtype=self.positions.dtype, device=self.positions.device

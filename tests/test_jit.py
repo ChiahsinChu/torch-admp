@@ -12,15 +12,13 @@ import unittest
 import numpy as np
 import torch
 
+from torch_admp import env
 from torch_admp.nblist import TorchNeighborList
 from torch_admp.pme import CoulombForceModule
 from torch_admp.qeq import GaussianDampingForceModule, QEqForceModule, SiteForceModule
 from torch_admp.utils import calc_grads, to_numpy_array, to_torch_tensor
-from torch_admp import env
 
 from . import SEED
-
-# torch.set_default_dtype(torch.float64)
 
 rcut = 4.0
 ethresh = 1e-5

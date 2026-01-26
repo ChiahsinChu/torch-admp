@@ -110,7 +110,8 @@ class BaseForceModule(torch.nn.Module, ABC):
         # Call the implementation in subclasses
         # Use getattr to explicitly access the tensor and avoid type checker issues
         length_coeff = getattr(self.const_lib, "length_coeff")
-        return self._forward_impl(
+        energy_coeff = getattr(self.const_lib, "energy_coeff")
+        energy = self._forward_impl(
             _positions * length_coeff,
             _box * length_coeff if _box is not None else None,
             _pairs,
@@ -118,6 +119,7 @@ class BaseForceModule(torch.nn.Module, ABC):
             _buffer_scales,
             _params,
         )
+        return energy / energy_coeff
 
     @abstractmethod
     @torch.jit.export
