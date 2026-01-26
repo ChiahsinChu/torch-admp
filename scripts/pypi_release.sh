@@ -2,6 +2,11 @@ set -e
 
 # use pushd and popd to return to the original directory
 pushd "$(dirname "$0")/.."
+# clear dist/ if exist
+if [ -d "dist" ]; then
+    rm -rf dist/*
+    echo "Cleared dist/ directory"
+fi
 python -m build
 twine check dist/*
 # ask for confirmation
