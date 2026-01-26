@@ -15,7 +15,6 @@ import torchopt
 from torchopt.diff.implicit import custom_root
 
 from torch_admp.base_force import BaseForceModule
-from torch_admp.env import DEVICE
 from torch_admp.optimizer import update_pr
 from torch_admp.pme import CoulombForceModule
 from torch_admp.utils import (
@@ -1240,7 +1239,7 @@ def pgrad_optimize(
     except KeyError as exc:
         raise ValueError(f"Method {method} is not supported.") from exc
 
-    with torch.device(device=DEVICE):
+    with torch.device(positions.device):
         out = custom_root(
             module.optimality,
             argnums=1,

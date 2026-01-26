@@ -12,7 +12,7 @@ with comparisons against LAMMPS reference data.
 3D:
     - boundary: p p p
     - slab correction: False
-    - ffield: True
+    - ffield: True/False
 """
 
 import unittest

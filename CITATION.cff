@@ -4,8 +4,8 @@ authors:
 - family-names: "Zhu"
   given-names: "Jia-Xin"
   orcid: "https://orcid.org/0000-0002-3471-4728"
-- family-names: "Si-Yuan"
-  given-names: "Han"
+- family-names: "Han"
+  given-names: "Si-Yuan"
   orcid: "https://orcid.org/0009-0008-8088-3638"
 - family-names: "Cheng"
   given-names: "Zheng"
@@ -17,5 +17,5 @@ version: 1.1.5
 date-released: 2026-01-26
 identifiers:
   - type: doi
-    value: 10.5281/zenodo.18372173
+    value: 10.5281/zenodo.18372174
 url: "https://github.com/ChiahsinChu/torch-admp"

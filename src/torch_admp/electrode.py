@@ -122,7 +122,7 @@ class LAMMPSElectrodeConstraint:
     value : float
         value of the constraint (potential or charge)
     eta : float
-        eta in used in LAMMPS (in legth^-1)
+        eta as used in LAMMPS (in length^-1)
     chi: float
         electronegativity [V]
         default: 0.0 (single element)
@@ -327,15 +327,16 @@ def infer(
 
     # single frame
     assert _positions.shape[0] == 1
+    assert _box is not None
 
     _q_opt, efield = charge_optimization(
         calculator,
-        positions,
-        box,
+        _positions[0],
+        _box[0],
         charges,
-        pairs,
-        ds,
-        buffer_scales,
+        _pairs[0],
+        _ds[0],
+        _buffer_scales[0],
         electrode_mask,
         eta,
         chi,
@@ -393,7 +394,7 @@ def charge_optimization(
         return charges[electrode_mask], efield
     # ffield mode
     if ffield_electrode_mask is not None and calculator.slab_corr:
-        raise KeyError("Slab correction and finite field cannot be used together.")
+        raise ValueError("Slab correction and finite field cannot be used together.")
 
     # electrode + electrolyte
     chi_chemical = chi

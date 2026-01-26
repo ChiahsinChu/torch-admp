@@ -1,5 +1,6 @@
 # ADMP (Automatic Differentiable Multipolar Polarizable) in PyTorch backend
 
+[![DOI:https://doi.org/10.5281/zenodo.18372172](https://zenodo.org/badge/DOI/https://doi.org/10.5281/zenodo.18372172.svg)](https://doi.org/https://doi.org/10.5281/zenodo.18372172)
 [![codecov](https://codecov.io/gh/ChiahsinChu/torch-admp/graph/badge.svg?token=aBlN5QoejV)](https://codecov.io/gh/ChiahsinChu/torch-admp)
 [![docscov](./docs/badges/docstring-coverage.svg)](https://pypi.org/project/docstr-coverage/)
 [![PyPI version](https://img.shields.io/pypi/v/torch-admp)](https://pypi.org/project/torch-admp/)
