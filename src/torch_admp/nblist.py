@@ -65,6 +65,9 @@ def dp_nblist(
             "deepmd.pt is required for dp_nblist. Please install deepmd (pt backend) to use this function."
         )
 
+    if rcut <= 0.0:
+        raise ValueError(f"rcut must be positive, got {rcut}")
+
     positions = torch.reshape(positions, [1, -1, 3])
     (
         extended_coord,
@@ -116,6 +119,10 @@ def vesin_nblist(
         raise ImportError(
             "vesin[torch] is required for vesin_nblist. Please install vesin with torch support to use this function."
         )
+
+    if rcut <= 0.0:
+        raise ValueError(f"rcut must be positive, got {rcut}")
+
     device = positions.device
     calculator = NeighborList(cutoff=rcut, full_list=False)
 

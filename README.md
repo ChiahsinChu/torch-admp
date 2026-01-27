@@ -21,14 +21,11 @@ pip install torch-admp
 For the unit tests, you can install the package from source with the following command:
 
 ```bash
-# install packages and dependencies
 git clone https://github.com/ChiahsinChu/torch-admp
-pip install torch-admp[test,vesin]
-pip install "DMFF @ git+https://github.com/ChiahsinChu/DMFF.git@ut_torch-admp"
-# run tests
 cd torch-admp
+pip install .[test,vesin]
+pip install "DMFF @ git+https://github.com/ChiahsinChu/DMFF.git@ut_torch-admp"
 pytest --cov=torch_admp tests
-```
 
 ## [Documentation](https://chiahsinchu.github.io/torch-admp/)
 
@@ -47,3 +44,4 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 ## Support
 
 For questions and support, please open an issue on the [GitHub repository](https://github.com/ChiahsinChu/torch-admp).
+```

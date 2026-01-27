@@ -8,18 +8,20 @@ This example demonstrates batch processing for multiple configurations:
 3. Efficient processing of multiple configurations
 """
 
+import time
+
 import numpy as np
 import torch
 from torch.nn.utils.rnn import pad_sequence
-import time
 
+from torch_admp import env
 from torch_admp.nblist import TorchNeighborList
 from torch_admp.pme import CoulombForceModule
 from torch_admp.utils import calc_grads
 
 # Set default device and precision
-torch.set_default_device("cuda" if torch.cuda.is_available() else "cpu")
-torch.set_default_dtype(torch.float64)
+torch.set_default_device(env.DEVICE)
+torch.set_default_dtype(env.GLOBAL_PT_FLOAT_PRECISION)
 
 
 def main():
@@ -121,7 +123,7 @@ def main():
     forces = -calc_grads(batch_energies, batch_positions)
     print(f"Forces shape: {forces.shape}")
     print(
-        f"Max force magnitude: {torch.max(torch.norm(forces, dim=1)).item():.6f} eV/Å"
+        f"Max force magnitude: {torch.max(torch.norm(forces, dim=-1)).item():.6f} eV/Å"
     )
 
     # Performance comparison: batch vs individual

@@ -18,7 +18,7 @@ from scipy import special
 from torch_admp.base_force import BaseForceModule
 from torch_admp.env import DEVICE, GLOBAL_PT_FLOAT_PRECISION
 from torch_admp.recip import bspline, setup_kpts, setup_kpts_integer, spread_charges
-from torch_admp.utils import safe_inverse, to_torch_tensor
+from torch_admp.utils import safe_inverse, to_numpy_array, to_torch_tensor
 
 
 class CoulombForceModule(BaseForceModule):
@@ -94,6 +94,12 @@ class CoulombForceModule(BaseForceModule):
             Grid spacing for reciprocal space, by default None
         """
         BaseForceModule.__init__(self, units_dict)
+
+        if rcut <= 0.0:
+            raise ValueError(f"rcut must be positive, got {rcut}")
+
+        if slab_axis not in np.arange(3):
+            raise ValueError(f"slab_axis must be 0/1/2, got {rcut}")
 
         self.kspace_flag = kspace
         if kappa is not None:
@@ -574,11 +580,14 @@ def setup_ewald_parameters(
     kx, ky, kz: int
         number of the k-points mesh
     """
+    if rcut <= 0.0:
+        raise ValueError(f"rcut must be positive, got {rcut}")
+
     if box is None:
         return 0.1, 1, 1, 1
 
     if isinstance(box, torch.Tensor):
-        box = torch.Tensor.numpy(box, force=True)
+        box = to_numpy_array(box)
 
     # assert orthogonal box
     assert (
@@ -614,7 +623,7 @@ def setup_ewald_parameters(
         n = i + 60
         low = 0.0
         high = kappa
-        for k in range(n):
+        for _ in range(n):
             kappa = (low + high) / 2
             if special.erfc(kappa * rcut) > threshold:
                 low = kappa

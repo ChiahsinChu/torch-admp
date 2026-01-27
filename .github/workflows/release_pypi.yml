@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - "v*" # or '*' for all tags
 
 jobs:
   build:
@@ -22,7 +24,7 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip
           pip install .  # Install package to generate version
-          python3 -m  --user
+          python3 -m pip install build --user
       - name: Build a binary wheel and a source tarball
         run: python3 -m build
       - name: Store the distribution packages

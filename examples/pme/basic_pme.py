@@ -12,23 +12,24 @@ This example demonstrates fundamental usage of PME for periodic systems:
 import numpy as np
 import torch
 
+from torch_admp import env
 from torch_admp.nblist import TorchNeighborList
 from torch_admp.pme import CoulombForceModule
 from torch_admp.utils import calc_grads
 
 # Set default device and precision
-torch.set_default_device("cuda" if torch.cuda.is_available() else "cpu")
-torch.set_default_dtype(torch.float64)
+torch.set_default_device(env.DEVICE)
+torch.set_default_dtype(env.GLOBAL_PT_FLOAT_PRECISION)
 
 
 def main():
     """
     Basic PME example with periodic boundary conditions.
     """
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("BASIC PME EXAMPLE")
-    print("="*60)
-    
+    print("=" * 60)
+
     # System parameters
     rcut = 6.0  # Cutoff distance in Angstroms
     n_atoms = 100  # Number of atoms
@@ -62,15 +63,17 @@ def main():
     print(f"Cutoff: {rcut} Å, Ewald threshold: {ethresh}")
     print(f"Total PME energy: {energy.item():.6f} eV")
     print(f"Forces shape: {forces.shape}")
-    print(f"Max force magnitude: {torch.max(torch.norm(forces, dim=1)).item():.6f} eV/Å")
-    
+    print(
+        f"Max force magnitude: {torch.max(torch.norm(forces, dim=1)).item():.6f} eV/Å"
+    )
+
     # Print some additional information
     print(f"\nAdditional information:")
     print(f"Number of atom pairs: {pairs.shape[0]}")
     print(f"Average distance: {torch.mean(ds).item():.6f} Å")
     print(f"Min distance: {torch.min(ds).item():.6f} Å")
     print(f"Max distance: {torch.max(ds).item():.6f} Å")
-    
+
     return module, energy, forces
 
 
