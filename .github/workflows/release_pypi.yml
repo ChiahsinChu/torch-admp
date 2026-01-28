@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - fix/pkg_ver_in_gh_wf # for test
 
 jobs:
   build:
