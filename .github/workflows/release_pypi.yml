@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - fix/pkg_ver_in_gh_wf # for test
 
 jobs:
   build:
@@ -15,6 +16,8 @@ jobs:
         with:
           persist-credentials: false
           fetch-tags: true # Fetch tags to get version
+      - name: Fetch all tags
+        run: git fetch --tags
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
