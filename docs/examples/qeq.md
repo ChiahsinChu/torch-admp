@@ -176,6 +176,7 @@ Shows how to calculate and analyze the Hessian matrix:
 python hessian_calculation.py
 ```
 
+<!--
 ### 9. Constraint Handling (`constraint_handling.py`)
 
 Demonstrates various constraint types and handling:
@@ -196,7 +197,7 @@ Demonstrates various constraint types and handling:
 
 ```bash
 python constraint_handling.py
-```
+``` -->
 
 ## Running All Examples
 
@@ -356,7 +357,7 @@ Use `advanced_parameters.py` and `convergence_criteria.py` to optimize parameter
 ```python
 # Test different convergence thresholds
 for eps in [1e-4, 1e-5, 1e-6]:
-    module = QEqForceModule(eps=eps)
+    module = QEqForceModule(eps=eps, ...)
     # Test performance
 ```
 

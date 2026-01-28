@@ -251,13 +251,11 @@ For large systems, consider:
 ### Common Issues
 
 1. **Non-convergence**:
-
    - Increase `max_iter`
    - Relax `eps` threshold
    - Try different optimization method
 
 2. **Memory issues**:
-
    - Reduce cutoff radius
    - Use projected gradient instead of matrix inversion
    - Process in smaller batches
@@ -270,7 +268,6 @@ For large systems, consider:
 ### Performance Issues
 
 1. **Slow convergence**:
-
    - Use better initial guesses
    - Try LBFGS method
    - Enable JIT compilation

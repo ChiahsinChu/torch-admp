@@ -63,8 +63,8 @@ def load_test_data():
 
     data_dict = {
         "n_atoms": n_atoms,
-        "position": np.array(positions),
-        "box": np.array([a._value, b._value, c._value]) * 10.0,
+        "position": np.asarray(positions),
+        "box": np.asarray([a._value, b._value, c._value]) * 10.0,
         "chi": chi * energy_coeff,
         "hardness": hardness * energy_coeff,
         "eta": eta,
@@ -156,7 +156,15 @@ def calculate_and_analyze_hessian():
     eigenvalues = np.linalg.eigvalsh(hessian_np)
     print(f"Minimum eigenvalue: {np.min(eigenvalues):.6f}")
     print(f"Maximum eigenvalue: {np.max(eigenvalues):.6f}")
-    print(f"Condition number: {np.max(eigenvalues) / np.min(eigenvalues):.2e}")
+
+    # Guard against division by zero in condition number calculation
+    min_eigenvalue = np.min(eigenvalues)
+    if min_eigenvalue > 0:
+        print(f"Condition number: {np.max(eigenvalues) / min_eigenvalue:.2e}")
+    else:
+        print(
+            f"Condition number: {'inf' if min_eigenvalue == 0 else 'undefined (negative min eigenvalue)'}"
+        )
 
     # Check positive definiteness
     is_positive_definite = np.all(eigenvalues > 0)

@@ -136,3 +136,29 @@ class TestNBList(unittest.TestCase):
             nblist.sort_pairs(pairs_1), nblist.sort_pairs(pairs_2)
         )
         torch.testing.assert_close(torch.sort(ds_1)[0], torch.sort(ds_2)[0])
+
+    def test_invalid_rcut_in_dp_nblist(self):
+        """Test dp_nblist with invalid rcut (line 69)"""
+        positions = self.positions
+        box = self.box
+
+        with self.assertRaises(ValueError) as context:
+            nblist.dp_nblist(positions, box, self.nnei, rcut=-1.0)
+        self.assertIn("rcut must be positive, got -1.0", str(context.exception))
+
+        with self.assertRaises(ValueError) as context:
+            nblist.dp_nblist(positions, box, self.nnei, rcut=0.0)
+        self.assertIn("rcut must be positive, got 0.0", str(context.exception))
+
+    def test_invalid_rcut_in_vesin_nblist(self):
+        """Test vesin_nblist with invalid rcut (line 124)"""
+        positions = self.positions
+        box = self.box
+
+        with self.assertRaises(ValueError) as context:
+            nblist.vesin_nblist(positions, box, rcut=-1.0)
+        self.assertIn("rcut must be positive, got -1.0", str(context.exception))
+
+        with self.assertRaises(ValueError) as context:
+            nblist.vesin_nblist(positions, box, rcut=0.0)
+        self.assertIn("rcut must be positive, got 0.0", str(context.exception))

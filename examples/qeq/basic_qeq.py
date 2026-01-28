@@ -39,15 +39,18 @@ def load_test_data():
         electronegativity (chi), hardness, eta, and initial charges.
     """
     # Load force field parameters from XML
+    import os
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
     xml = XMLIO()
-    xml.loadXML("qeq.xml")
+    xml.loadXML(os.path.join(script_dir, "qeq.xml"))
     res = xml.parseResidues()
     ffinfo = xml.parseXML()
     charges = [a["charge"] for a in res[0]["particles"]]
     types = np.array([a["type"] for a in res[0]["particles"]])
 
     # Load molecular structure from PDB
-    pdb = app.PDBFile("qeq.pdb")
+    pdb = app.PDBFile(os.path.join(script_dir, "qeq.pdb"))
     dmfftop = DMFFTopology(from_top=pdb.topology)
     positions = pdb.getPositions(asNumpy=True).value_in_unit(unit.angstrom)
     positions = jnp.array(positions)
@@ -126,8 +129,10 @@ def main():
     buffer_scales = nblist.get_buffer_scales()
 
     # Set up charge constraints (total charge = 0)
-    constraint_matrix = torch.ones([1, data_dict["n_atoms"]], dtype=torch.float64)
-    constraint_vals = torch.zeros(1, dtype=torch.float64)
+    constraint_matrix = torch.ones(
+        [1, data_dict["n_atoms"]], dtype=positions.dtype, device=positions.device
+    )
+    constraint_vals = torch.zeros(1, dtype=positions.dtype, device=positions.device)
 
     # Create QEq module
     module = QEqForceModule(rcut=rcut, ethresh=ethresh)

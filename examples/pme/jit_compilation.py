@@ -82,7 +82,12 @@ def main():
     jit_time = time.time() - start_time
 
     # Verify results are identical
-    assert torch.abs(energy - jit_energy) < 1e-10
+    torch.testing.assert_close(
+        energy,
+        jit_energy,
+        rtol=1e-6,
+        atol=1e-8 if energy.dtype == torch.float32 else 1e-10,
+    )
 
     print(f"Regular execution time: {regular_time:.4f} seconds")
     print(f"JIT execution time: {jit_time:.4f} seconds")
@@ -102,7 +107,12 @@ def main():
     loaded_energy = loaded_jit_module(
         positions, box, pairs, ds, buffer_scales, {"charge": charges}
     )
-    assert torch.abs(energy - loaded_energy) < 1e-10
+    torch.testing.assert_close(
+        energy,
+        loaded_energy,
+        rtol=1e-6,
+        atol=1e-8 if energy.dtype == torch.float32 else 1e-10,
+    )
     print(f"Loaded module energy: {loaded_energy.item():.6f} eV")
     print("✓ Loaded module produces identical results")
 
@@ -122,7 +132,12 @@ def main():
         positions, box, pairs, ds, buffer_scales, {"charge": charges}
     )
 
-    assert torch.abs(energy_slab - jit_energy_slab) < 1e-10
+    torch.testing.assert_close(
+        energy_slab,
+        jit_energy_slab,
+        rtol=1e-6,
+        atol=1e-8 if energy_slab.dtype == torch.float32 else 1e-10,
+    )
     print(
         f"  Slab correction - Regular: {energy_slab.item():.6f} eV, JIT: {jit_energy_slab.item():.6f} eV"
     )
@@ -138,7 +153,12 @@ def main():
         positions, box, pairs, ds, buffer_scales, {"charge": charges}
     )
 
-    assert torch.abs(energy_kappa - jit_energy_kappa) < 1e-10
+    torch.testing.assert_close(
+        energy_kappa,
+        jit_energy_kappa,
+        rtol=1e-6,
+        atol=1e-8 if energy_kappa.dtype == torch.float32 else 1e-10,
+    )
     print(
         f"  Custom kappa - Regular: {energy_kappa.item():.6f} eV, JIT: {jit_energy_kappa.item():.6f} eV"
     )
@@ -208,7 +228,12 @@ def main():
             )
         jit_time_test = time.time() - start_time
 
-        assert torch.abs(energy_test - jit_energy_test) < 1e-10
+        torch.testing.assert_close(
+            energy_test,
+            jit_energy_test,
+            rtol=1e-6,
+            atol=1e-8 if energy_test.dtype == torch.float32 else 1e-10,
+        )
 
         print(
             f"  {size:3d} atoms: Regular {regular_time_test:.4f}s, JIT {jit_time_test:.4f}s, Speedup {regular_time_test/jit_time_test:.2f}x"

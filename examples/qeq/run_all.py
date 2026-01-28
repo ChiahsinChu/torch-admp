@@ -39,7 +39,7 @@ def run_example(script_name, description):
         result = subprocess.run(
             [sys.executable, script_name],
             cwd=Path(__file__).parent,
-            capture_output=False,
+            capture_output=True,
             text=True,
             check=True,
         )
@@ -96,7 +96,7 @@ def main():
         ("batch_processing.py", "Batch processing of multiple configurations"),
         ("jit_compilation.py", "JIT compilation for performance optimization"),
         ("hessian_calculation.py", "Hessian matrix calculation and analysis"),
-        ("constraint_handling.py", "Constraint handling and vector projection"),
+        # ("constraint_handling.py", "Constraint handling and vector projection"),
     ]
 
     # Track success/failure

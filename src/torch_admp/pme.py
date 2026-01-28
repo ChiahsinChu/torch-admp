@@ -98,11 +98,16 @@ class CoulombForceModule(BaseForceModule):
         if rcut <= 0.0:
             raise ValueError(f"rcut must be positive, got {rcut}")
 
-        if slab_axis not in np.arange(3):
-            raise ValueError(f"slab_axis must be 0/1/2, got {rcut}")
+        if ethresh <= 0.0:
+            raise ValueError(f"ethresh must be positive, got {ethresh}")
+
+        if slab_axis not in (0, 1, 2):
+            raise ValueError(f"slab_axis must be 0/1/2, got {slab_axis}")
 
         self.kspace_flag = kspace
         if kappa is not None:
+            if kappa <= 0.0:
+                raise ValueError(f"kappa must be positive, got {kappa}")
             self.kappa = kappa
         else:
             if self.kspace_flag:
@@ -116,6 +121,12 @@ class CoulombForceModule(BaseForceModule):
             # use user-defined kmesh
             if isinstance(kmesh, int):
                 kmesh = [kmesh, kmesh, kmesh]
+            # Validate kmesh values
+            for i, k in enumerate(kmesh):
+                if k <= 0:
+                    raise ValueError(
+                        f"kmesh values must be positive, got kmesh[{i}] = {k}"
+                    )
             self.kmesh = to_torch_tensor(np.array(kmesh)).to(torch.long)
         else:
             self.kmesh = kmesh
@@ -125,6 +136,12 @@ class CoulombForceModule(BaseForceModule):
         if spacing is not None:
             if isinstance(spacing, float):
                 spacing = [spacing, spacing, spacing]
+            # Validate spacing values
+            for i, s in enumerate(spacing):
+                if s <= 0:
+                    raise ValueError(
+                        f"spacing values must be positive, got spacing[{i}] = {s}"
+                    )
             self.spacing = to_torch_tensor(np.array(spacing)).to(
                 GLOBAL_PT_FLOAT_PRECISION
             )

@@ -68,7 +68,7 @@ def main():
     )
 
     # Print some additional information
-    print(f"\nAdditional information:")
+    print("\nAdditional information:")
     print(f"Number of atom pairs: {pairs.shape[0]}")
     print(f"Average distance: {torch.mean(ds).item():.6f} Å")
     print(f"Min distance: {torch.min(ds).item():.6f} Å")

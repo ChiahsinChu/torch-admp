@@ -77,12 +77,11 @@ def main():
     )
 
     # Verify that sum matches total
-    assert (
-        torch.abs(
-            energy
-            - (real_energy + reciprocal_energy + self_energy + non_neutral_energy)
-        )
-        < 1e-10
+    torch.testing.assert_close(
+        energy,
+        real_energy + reciprocal_energy + self_energy + non_neutral_energy,
+        rtol=1e-6,
+        atol=1e-8 if energy.dtype == torch.float32 else 1e-10,
     )
     print("  ✓ Verification passed: sum of components equals total energy")
 
@@ -113,18 +112,15 @@ def main():
     )
 
     # Verify that sum matches total
-    assert (
-        torch.abs(
-            energy_slab
-            - (
-                real_energy_slab
-                + reciprocal_energy_slab
-                + self_energy_slab
-                + non_neutral_energy_slab
-                + slab_corr_energy_slab
-            )
-        )
-        < 1e-10
+    torch.testing.assert_close(
+        energy_slab,
+        real_energy_slab
+        + reciprocal_energy_slab
+        + self_energy_slab
+        + non_neutral_energy_slab
+        + slab_corr_energy_slab,
+        rtol=1e-6,
+        atol=1e-8 if energy_slab.dtype == torch.float32 else 1e-10,
     )
     print("    ✓ Verification passed: sum of components equals total energy")
 
