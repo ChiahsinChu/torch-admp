@@ -18,7 +18,7 @@ from scipy import special
 from torch_admp.base_force import BaseForceModule
 from torch_admp.env import DEVICE, GLOBAL_PT_FLOAT_PRECISION
 from torch_admp.recip import bspline, setup_kpts, setup_kpts_integer, spread_charges
-from torch_admp.utils import safe_inverse, to_torch_tensor
+from torch_admp.utils import safe_inverse, to_numpy_array, to_torch_tensor
 
 
 class CoulombForceModule(BaseForceModule):
@@ -95,8 +95,19 @@ class CoulombForceModule(BaseForceModule):
         """
         BaseForceModule.__init__(self, units_dict)
 
+        if rcut <= 0.0:
+            raise ValueError(f"rcut must be positive, got {rcut}")
+
+        if ethresh <= 0.0:
+            raise ValueError(f"ethresh must be positive, got {ethresh}")
+
+        if slab_axis not in (0, 1, 2):
+            raise ValueError(f"slab_axis must be 0/1/2, got {slab_axis}")
+
         self.kspace_flag = kspace
         if kappa is not None:
+            if kappa <= 0.0:
+                raise ValueError(f"kappa must be positive, got {kappa}")
             self.kappa = kappa
         else:
             if self.kspace_flag:
@@ -110,6 +121,12 @@ class CoulombForceModule(BaseForceModule):
             # use user-defined kmesh
             if isinstance(kmesh, int):
                 kmesh = [kmesh, kmesh, kmesh]
+            # Validate kmesh values
+            for i, k in enumerate(kmesh):
+                if k <= 0:
+                    raise ValueError(
+                        f"kmesh values must be positive, got kmesh[{i}] = {k}"
+                    )
             self.kmesh = to_torch_tensor(np.array(kmesh)).to(torch.long)
         else:
             self.kmesh = kmesh
@@ -119,6 +136,12 @@ class CoulombForceModule(BaseForceModule):
         if spacing is not None:
             if isinstance(spacing, float):
                 spacing = [spacing, spacing, spacing]
+            # Validate spacing values
+            for i, s in enumerate(spacing):
+                if s <= 0:
+                    raise ValueError(
+                        f"spacing values must be positive, got spacing[{i}] = {s}"
+                    )
             self.spacing = to_torch_tensor(np.array(spacing)).to(
                 GLOBAL_PT_FLOAT_PRECISION
             )
@@ -574,11 +597,14 @@ def setup_ewald_parameters(
     kx, ky, kz: int
         number of the k-points mesh
     """
+    if rcut <= 0.0:
+        raise ValueError(f"rcut must be positive, got {rcut}")
+
     if box is None:
         return 0.1, 1, 1, 1
 
     if isinstance(box, torch.Tensor):
-        box = torch.Tensor.numpy(box, force=True)
+        box = to_numpy_array(box)
 
     # assert orthogonal box
     assert (
@@ -614,7 +640,7 @@ def setup_ewald_parameters(
         n = i + 60
         low = 0.0
         high = kappa
-        for k in range(n):
+        for _ in range(n):
             kappa = (low + high) / 2
             if special.erfc(kappa * rcut) > threshold:
                 low = kappa

@@ -1,10 +1,10 @@
 # QEq Examples
 
-This directory contains comprehensive examples demonstrating the full capabilities of QEq (Charge Equilibration) module in torch-admp. The examples cover everything from basic usage to advanced features like JIT compilation, constraint handling, and Hessian analysis.
+This directory contains comprehensive examples demonstrating various features and capabilities of the Charge Equilibration (QEq) implementation in torch-admp.
 
 ## Overview
 
-Charge Equilibration (QEq) is a method for determining atomic charges in molecular systems by minimizing electrostatic energy subject to constraints. The torch-admp implementation provides multiple optimization methods, constraint handling, and advanced features for efficient charge calculation.
+QEq (Charge Equilibration) is a method for determining atomic charges in molecular systems by minimizing the electrostatic energy subject to constraints. The torch-admp implementation provides multiple optimization methods, constraint handling, and advanced features for efficient charge calculation.
 
 ## Available Examples
 
@@ -176,29 +176,6 @@ Shows how to calculate and analyze the Hessian matrix:
 python hessian_calculation.py
 ```
 
-<!--
-### 9. Constraint Handling (`constraint_handling.py`)
-
-Demonstrates various constraint types and handling:
-
-- Charge conservation constraints
-- Fixed charge constraints
-- Group charge constraints
-- Vector projection coefficient matrices
-
-**Key Features:**
-
-- Multiple constraint types
-- Constraint matrix properties
-- Vector projection mathematics
-- Constraint verification
-
-**Usage:**
-
-```bash
-python constraint_handling.py
-``` -->
-
 ## Running All Examples
 
 To run all examples in sequence, use the provided script:
@@ -207,127 +184,27 @@ To run all examples in sequence, use the provided script:
 python run_all.py
 ```
 
-This will execute each example in order and display the results, providing a comprehensive demonstration of all QEq features.
+This will execute each example in order and display the results.
 
-## Basic Usage
+## Data Files
 
-Here's a minimal example of QEq usage:
+The examples use the following data files:
 
-```python
-import torch
-from torch_admp.qeq import QEqForceModule
-from torch_admp.nblist import TorchNeighborList
+- `qeq.pdb`: Molecular structure in PDB format
+- `qeq.xml`: Force field parameters in XML format
 
-# Create QEq module
-module = QEqForceModule(rcut=8.0, ethresh=1e-5)
+These files contain the molecular system and QEq parameters (electronegativity, hardness, eta values) used in all examples.
 
-# Calculate neighbor list
-nblist = TorchNeighborList(cutoff=8.0)
-pairs = nblist(positions, box)
-ds = nblist.get_ds()
-buffer_scales = nblist.get_buffer_scales()
+## Requirements
 
-# Set up constraints (total charge = 0)
-constraint_matrix = torch.ones([1, n_atoms], dtype=torch.float64)
-constraint_vals = torch.zeros(1, dtype=torch.float64)
+All examples require the following packages:
 
-# Solve for charges using projected gradient method
-energy, charges = module.solve_pgrad(
-    charges,
-    positions,
-    box,
-    chi,
-    hardness,
-    eta,
-    pairs,
-    ds,
-    buffer_scales,
-    constraint_matrix,
-    constraint_vals,
-)
-```
-
-## Advanced Features
-
-### Matrix Inversion Method
-
-For direct solution without iterative optimization:
-
-```python
-# Solve using matrix inversion
-energy, charges, diag_hessian, fermi = module.solve_matrix_inversion(
-    positions,
-    box,
-    chi,
-    hardness,
-    eta,
-    pairs,
-    ds,
-    buffer_scales,
-    constraint_matrix,
-    constraint_vals,
-)
-```
-
-### JIT Compilation
-
-For performance optimization with repeated calculations:
-
-```python
-# Create JIT-compiled module
-jit_module = torch.jit.script(QEqForceModule(rcut=8.0, ethresh=1e-5))
-
-# Use with pgrad_optimize function
-from torch_admp.qeq import pgrad_optimize
-
-energy, charges = pgrad_optimize(
-    jit_module,
-    charges,
-    positions,
-    box,
-    chi,
-    hardness,
-    eta,
-    pairs,
-    ds,
-    buffer_scales,
-    constraint_matrix,
-    constraint_vals,
-)
-```
-
-### Custom Constraints
-
-Implement custom constraints using constraint matrix:
-
-```python
-# Define constraint matrix A and values b
-A = torch.tensor([...])  # Constraint coefficients
-b = torch.tensor([...])  # Constraint values
-
-# Calculate coefficient matrix
-from torch_admp.utils import vector_projection_coeff_matrix
-
-coeff_matrix = vector_projection_coeff_matrix(A)
-
-# Solve with constraints
-energy, charges = module.solve_pgrad(..., A, b, coeff_matrix=coeff_matrix)
-```
-
-### Hessian Analysis
-
-For analyzing the energy landscape curvature:
-
-```python
-# Calculate Hessian matrix
-hessian = module.calc_hessian(
-    positions, box, chi, hardness, eta, pairs, ds, buffer_scales
-)
-
-# Analyze eigenvalues
-eigenvalues = torch.linalg.eigvalsh(hessian)
-print(f"Condition number: {eigenvalues.max() / eigenvalues.min()}")
-```
+- torch
+- jax
+- numpy
+- openmm
+- dmff
+- scipy
 
 ## Performance Tips
 
@@ -357,7 +234,7 @@ Use `advanced_parameters.py` and `convergence_criteria.py` to optimize parameter
 ```python
 # Test different convergence thresholds
 for eps in [1e-4, 1e-5, 1e-6]:
-    module = QEqForceModule(eps=eps, ...)
+    module = QEqForceModule(eps=eps)
     # Test performance
 ```
 
@@ -368,34 +245,6 @@ For large systems, consider:
 - Using matrix inversion method if memory allows
 - JIT compilation for repeated calculations
 - Appropriate cutoff values
-
-## API Reference
-
-### QEqForceModule
-
-Main class for QEq calculations.
-
-**Parameters:**
-
-- `rcut` (float): Cutoff radius for short-range interactions
-- `ethresh` (float, optional): Energy threshold for electrostatic interactions
-- `max_iter` (int, optional): Maximum iterations for optimization
-- `eps` (float, optional): Convergence threshold
-- `damping` (bool, optional): Whether to include Gaussian damping
-
-**Methods:**
-
-- `solve_pgrad()`: Solve using projected gradient method
-- `solve_matrix_inversion()`: Solve using matrix inversion
-- `calc_hessian()`: Calculate Hessian matrix
-- `func_energy()`: Calculate energy for given charges
-
-### Utility Functions
-
-- `vector_projection()`: Project vector onto constraint subspace
-- `vector_projection_coeff_matrix()`: Calculate coefficient matrix for projection
-- `pgrad_optimize()`: Function for projected gradient optimization
-- `calc_pgrads()`: Calculate projected gradients
 
 ## Troubleshooting
 
@@ -428,12 +277,41 @@ Main class for QEq calculations.
    - Use appropriate cutoffs
    - Disable unnecessary submodels
 
+## Advanced Topics
+
+### Custom Constraints
+
+Implement custom constraints using the constraint matrix:
+
+```python
+# Define constraint matrix A and values b
+A = torch.tensor([...])  # Constraint coefficients
+b = torch.tensor([...])  # Constraint values
+
+# Calculate coefficient matrix
+coeff_matrix = vector_projection_coeff_matrix(A)
+
+# Solve with constraints
+energy, charges = module.solve_pgrad(..., A, b, coeff_matrix=coeff_matrix)
+```
+
+### Performance Profiling
+
+Profile your QEq calculations:
+
+```python
+import time
+
+start = time.time()
+energy, charges = module.solve_pgrad(...)
+elapsed = time.time() - start
+
+print(f"QEq solved in {elapsed:.4f} seconds")
+print(f"Converged in {module.converge_iter} iterations")
+```
+
 ## References
 
 For more detailed information about QEq theory and implementation:
 
 1. Rappé, A. K., & Goddard, W. A. (1991). Charge equilibration for molecular dynamics simulations. The Journal of Physical Chemistry, 95(8), 3358-3363.
-
-2. Chen, J., & Martínez, T. J. (2007). Charge equilibration: A variational approach. The Journal of Chemical Physics, 126(14), 144107.
-
-3. torch-admp documentation: [https://github.com/ChiahsinChu/torch-admp](https://github.com/ChiahsinChu/torch-admp)

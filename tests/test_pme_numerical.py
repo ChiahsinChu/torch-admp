@@ -470,3 +470,38 @@ class TestCoulombForceModule(unittest.TestCase):
 
         with self.assertRaises(AssertionError):
             setup_ewald_parameters(rcut=5.0, box=box, threshold=1e-5, method="openmm")
+
+    def test_invalid_rcut_in_init(self):
+        """Test CoulombForceModule initialization with invalid rcut (line 99)"""
+        with self.assertRaises(ValueError) as context:
+            CoulombForceModule(rcut=-1.0)
+        self.assertIn("rcut must be positive, got -1.0", str(context.exception))
+
+    def test_invalid_ethresh_in_init(self):
+        """Test CoulombForceModule initialization with invalid ethresh (line 102)"""
+        with self.assertRaises(ValueError) as context:
+            CoulombForceModule(rcut=5.0, ethresh=-1.0)
+        self.assertIn("ethresh must be positive, got -1.0", str(context.exception))
+
+    def test_invalid_rcut_in_setup_ewald_parameters(self):
+        """Test setup_ewald_parameters with invalid rcut (lines 581, 584)"""
+        from torch_admp.pme import setup_ewald_parameters
+
+        with self.assertRaises(ValueError) as context:
+            setup_ewald_parameters(rcut=-1.0, box=np.diag([10.0, 10.0, 10.0]))
+        self.assertIn("rcut must be positive, got -1.0", str(context.exception))
+
+        with self.assertRaises(ValueError) as context:
+            setup_ewald_parameters(rcut=0.0, box=np.diag([10.0, 10.0, 10.0]))
+        self.assertIn("rcut must be positive, got 0.0", str(context.exception))
+
+    def test_invalid_method_in_setup_ewald_parameters(self):
+        """Test setup_ewald_parameters with invalid method (line 590)"""
+        from torch_admp.pme import setup_ewald_parameters
+
+        with self.assertRaises(ValueError) as context:
+            setup_ewald_parameters(
+                rcut=5.0, box=np.diag([10.0, 10.0, 10.0]), method="invalid"
+            )
+        self.assertIn("Invalid method: invalid", str(context.exception))
+        self.assertIn("Valid methods: 'openmm', 'gromacs'", str(context.exception))
