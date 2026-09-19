@@ -13,8 +13,8 @@ authors:
   given-names: "Kuang"
   orcid: "https://orcid.org/0000-0001-9142-5263"
 title: "ADMP in PyTorch backend"
-version: 1.1.5
-date-released: 2026-01-26
+version: 1.1.6
+date-released: 2026-09-19
 identifiers:
   - type: doi
     value: 10.5281/zenodo.18373347
